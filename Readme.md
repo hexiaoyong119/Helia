@@ -8,7 +8,7 @@
   * Record
   * Scan: DVB, DTMB ( DVB-T/T2, DVB-S/S2, DVB-C )
 
-#### Depends
+#### Dependencies
 
 * gcc, make, meson
 * libgtk 3.0 ( & dev )

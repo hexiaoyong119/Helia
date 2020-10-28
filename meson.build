@@ -1,4 +1,4 @@
-project('helia-light', 'c', version: '20.10', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
+project('helia-light', 'c', version: '20.11', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
 
 cc = meson.get_compiler('c')
 

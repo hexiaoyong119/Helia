@@ -8,6 +8,11 @@
   * Record
   * Scan: DVB, DTMB ( DVB-T/T2, DVB-S/S2, DVB-C )
 
+#### Channels ( scan initial file )
+
+* [Dvbv5-Gtk](https://github.com/vl-nix/dvbv5-gtk)
+* Convert ( DVB, ATSC, DTMB, ISDB ): [DVBv5](https://www.linuxtv.org/docs/libdvbv5/index.html) ⇨ [GstDvbSrc](https://gstreamer.freedesktop.org/documentation/dvb/dvbsrc.html#dvbsrc)
+
 #### Dependencies
 
 * gcc, make, meson
@@ -29,9 +34,3 @@
 5. Uninstall: sudo ninja -C build uninstall
 
 6. Debug: DVB_DEBUG=1 helia-light
-
-#### Channels ( scan initial file )
-
-* [Dvbv5-Gtk](https://github.com/vl-nix/dvbv5-gtk)
-* Convert ( DVB, ATSC, DTMB, ISDB ): [DVBv5](https://www.linuxtv.org/docs/libdvbv5/index.html) ⇨ [GstDvbSrc](https://gstreamer.freedesktop.org/documentation/dvb/dvbsrc.html#dvbsrc)
-

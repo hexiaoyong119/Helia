@@ -17,6 +17,7 @@
 #include "helia-eqa.h"
 #include "helia-eqv.h"
 #include "control-mp.h"
+#include "settings.h"
 
 #include <time.h>
 #include <gdk/gdk.h>
@@ -71,6 +72,8 @@ static void player_message_dialog ( const char *f_error, const char *file_or_inf
 					window,    GTK_DIALOG_MODAL,
 					mesg_type, GTK_BUTTONS_CLOSE,
 					"%s\n%s",  f_error, file_or_info );
+
+	gtk_window_set_icon_name ( GTK_WINDOW (dialog), DEF_ICON );
 
 	gtk_dialog_run     ( GTK_DIALOG ( dialog ) );
 	gtk_widget_destroy ( GTK_WIDGET ( dialog ) );
@@ -476,17 +479,25 @@ static void player_record ( Player *player )
 
 		if ( !uri ) return;
 
+		g_autofree char *rec_dir = NULL;
 		g_autofree char *dt = helia_time_to_str ();
 
-		char file_path[PATH_MAX] = {};
-		sprintf ( file_path, "%s/Record-iptv-%s", g_get_home_dir (), dt );
+		GSettings *setting = settings_init ();
+		if ( setting ) rec_dir = g_settings_get_string ( setting, "rec-dir" );
+
+		char path[PATH_MAX] = {};
+
+		if ( setting && rec_dir && !g_str_has_prefix ( rec_dir, "none" ) )
+			sprintf ( path, "%s/Record-iptv-%s", rec_dir, dt );
+		else
+			sprintf ( path, "%s/Record-iptv-%s", g_get_home_dir (), dt );
 
 		gboolean hls = FALSE;
 		if ( uri && g_str_has_suffix ( uri, ".m3u8" ) ) hls = TRUE;
 
 		player_set_stop ( player );
 
-		player->pipeline_rec = player_create_rec_bin ( hls, uri, file_path );
+		player->pipeline_rec = player_create_rec_bin ( hls, uri, path );
 
 		if ( player->pipeline_rec == NULL ) return;
 
@@ -498,10 +509,11 @@ static void player_record ( Player *player )
 		g_signal_connect ( bus, "message::error", G_CALLBACK ( player_msg_err_rec ), player );
 
 		gst_object_unref ( bus );
+		if ( setting ) g_object_unref ( setting );
 
 		gst_element_set_state ( player->pipeline_rec, GST_STATE_PLAYING );
 
-		player->file_rec = g_file_new_for_path ( file_path );
+		player->file_rec = g_file_new_for_path ( path );
 
 		g_timeout_add_seconds ( 1, (GSourceFunc)player_update_record, player );
 	}

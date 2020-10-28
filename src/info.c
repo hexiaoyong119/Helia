@@ -65,11 +65,17 @@ static void helia_info_change_state_subtitle ( G_GNUC_UNUSED GtkButton *button, 
 
 	g_object_set ( element, "flags", flags, NULL );
 }
-static void helia_info_change_hide_show_subtitle ( G_GNUC_UNUSED GtkButton *button, GtkComboBoxText *combo )
+static void helia_info_change_hide_show_subtitle ( GtkButton *button, GtkComboBoxText *combo )
 {
 	gboolean sensitive = gtk_widget_get_sensitive ( GTK_WIDGET ( combo ) );
 
 	gtk_widget_set_sensitive ( GTK_WIDGET ( combo ), !sensitive );
+
+	if ( helia_check_icon_theme ( "helia-set" ) )
+	{
+		GtkImage *image = helia_create_image ( ( !sensitive ) ? "helia-set" : "helia-unset", ICON_SIZE );
+		gtk_button_set_image ( button, GTK_WIDGET ( image ) );
+	}
 }
 
 static char * helia_info_get_str_vat ( GstElement *element, char *get_tag, int n_cur, const char *metadata, const char *metadata_2 )
@@ -390,6 +396,7 @@ void helia_info_player ( GtkWindow *win_base, GtkTreeView *treeview, GstElement 
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
 	gtk_window_set_transient_for ( window, win_base );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
 	gtk_window_set_default_size ( window, 400, -1 );
@@ -511,6 +518,7 @@ GtkComboBoxText * helia_info_dvb ( const char *data, GtkWindow *win_base, GstEle
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
 	gtk_window_set_transient_for ( window, win_base );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
 	gtk_window_set_default_size ( window, 400, -1 );

@@ -75,6 +75,7 @@ void helia_eqv_win ( uint16_t opacity, GtkWindow *win_base, GstElement *element 
 	gtk_window_set_title ( window, "Video EQ" );
 	gtk_window_set_modal ( window, TRUE );
 	gtk_window_set_transient_for ( window, win_base );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
 	GtkBox *m_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );

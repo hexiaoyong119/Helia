@@ -1,3 +1,5 @@
+subdir('icons')
+
 bindir = join_paths(get_option('prefix'), get_option('bindir'))
 exec_path = bindir + '/' + meson.project_name()
 
@@ -34,7 +36,3 @@ install_data(gschema_file, install_dir: path_gschema)
 
 cmd_compile_schema = 'glib-compile-schemas ' + path_gschema
 meson.add_install_script('sh', '-c', cmd_compile_schema)
-
-# Uninstall schema: ninja -C build uc
-cmd_rm_schema = 'rm -f ' + path_gschema + '/org.gnome.helia-light.gschema.xml ' + path_gschema + '/gschemas.compiled'
-run_target('uc', command: ['sh', '-c', cmd_rm_schema + '; ' + cmd_compile_schema])

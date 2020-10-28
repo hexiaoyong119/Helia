@@ -18,6 +18,7 @@
 #include "helia-eqa.h"
 #include "helia-eqv.h"
 #include "control-tv.h"
+#include "settings.h"
 
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
@@ -72,6 +73,8 @@ static void dvb_message_dialog ( const char *f_error, const char *file_or_info, 
 					window,    GTK_DIALOG_MODAL,
 					mesg_type, GTK_BUTTONS_CLOSE,
 					"%s\n%s",  f_error, file_or_info );
+
+	gtk_window_set_icon_name ( GTK_WINDOW (dialog), DEF_ICON );
 
 	gtk_dialog_run     ( GTK_DIALOG ( dialog ) );
 	gtk_widget_destroy ( GTK_WIDGET ( dialog ) );
@@ -773,11 +776,21 @@ static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video_enable, D
 	g_autofree char *dt = helia_time_to_str ();
 	char **lines = g_strsplit ( dvb->data, ":", 0 );
 
+	g_autofree char *rec_dir = NULL;
+	GSettings *setting = settings_init ();
+	if ( setting ) rec_dir = g_settings_get_string ( setting, "rec-dir" );
+
 	char path[PATH_MAX] = {};
-	sprintf ( path, "%s/%s-%s.m2ts", g_get_home_dir (), lines[0], dt );
+
+	if ( setting && rec_dir && !g_str_has_prefix ( rec_dir, "none" ) )
+		sprintf ( path, "%s/%s-%s.m2ts", rec_dir, lines[0], dt );
+	else
+		sprintf ( path, "%s/%s-%s.m2ts", g_get_home_dir (), lines[0], dt );
 
 	g_object_set ( elements[19], "location", path, NULL );
+
 	g_strfreev ( lines );
+	if ( setting ) g_object_unref ( setting );
 
 	dvbset.demux  = elements[0];
 	dvbset.volume = elements[6];
@@ -800,9 +813,10 @@ static GstPadProbeReturn dvb_blockpad_probe ( GstPad * pad, GstPadProbeInfo * in
 	DvbSet dvbset;
 	dvbset = dvb_create_rec_bin ( dvb->playdvb, dvb->checked_video, dvb );
 
+	dvb->demux  = dvbset.demux;
+	dvb->volume = dvbset.volume;
 	dvb->equalizer = dvbset.equalizer;
 	dvb->videoblnc = dvbset.videoblnc;
-	dvb->volume = dvbset.volume;
 
 	gst_element_link ( dvb->dvbsrc, dvbset.demux );
 
@@ -965,7 +979,7 @@ static void dvb_combo_lang_changed ( GtkComboBox *combo, Dvb *dvb )
 
 	GstElement *e_link = dvb_iterate_element ( dvb->playdvb, "queue-tee-audio", NULL );
 
-	dvb_change_audio_track ( dvb->demux, e_link, (uint8_t)num );
+	if ( e_link ) dvb_change_audio_track ( dvb->demux, e_link, (uint8_t)num );
 }
 
 static void dvb_run_info ( Dvb *dvb )

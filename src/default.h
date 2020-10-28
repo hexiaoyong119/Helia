@@ -15,3 +15,5 @@
 #define VOLUME 0.75
 
 #define ICON_SIZE 16
+
+#define DEF_ICON "applications-multimedia"

@@ -424,6 +424,8 @@ static void scan_message_dialog ( const char *f_error, const char *file_or_info,
 					mesg_type, GTK_BUTTONS_CLOSE,
 					"%s\n%s",  f_error, file_or_info );
 
+	gtk_window_set_icon_name ( GTK_WINDOW (dialog), DEF_ICON );
+
 	gtk_dialog_run     ( GTK_DIALOG ( dialog ) );
 	gtk_widget_destroy ( GTK_WIDGET ( dialog ) );
 }
@@ -512,6 +514,7 @@ static void scan_lnb_win ( G_GNUC_UNUSED GtkButton *button, Scan *scan )
 	GtkWindow *window = (GtkWindow *)gtk_window_new ( GTK_WINDOW_TOPLEVEL );
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_transient_for ( window, GTK_WINDOW ( scan ) );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 	gtk_window_set_default_size ( window, 400, -1 );
@@ -1356,6 +1359,7 @@ static void scan_init ( Scan *scan )
 
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 	gtk_window_set_default_size ( window, 300, 400 );
 	g_signal_connect ( window, "destroy", G_CALLBACK ( scan_window_quit ), scan );

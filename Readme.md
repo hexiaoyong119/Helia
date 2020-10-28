@@ -26,7 +26,7 @@
 
 4. Install: sudo ninja -C build install
 
-5. Uninstall: sudo ninja -C build uc uninstall
+5. Uninstall: sudo ninja -C build uninstall
 
 6. Debug: DVB_DEBUG=1 helia-light
 

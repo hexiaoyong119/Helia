@@ -68,6 +68,7 @@ static void control_tv_init ( ControlTv *ctv )
 	gtk_window_set_decorated ( window, FALSE  );
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 	gtk_window_set_default_size ( window, 400, -1 );
 

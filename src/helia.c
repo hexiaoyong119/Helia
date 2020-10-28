@@ -165,22 +165,23 @@ static void helia_about ( G_GNUC_UNUSED GtkButton *button, GtkWindow *window )
 {
 	GtkAboutDialog *dialog = (GtkAboutDialog *)gtk_about_dialog_new ();
 	gtk_window_set_transient_for ( GTK_WINDOW ( dialog ), window );
-
-	gtk_window_set_icon_name ( window, "applications-multimedia" );
+	gtk_window_set_icon_name ( GTK_WINDOW ( dialog ), DEF_ICON );
 
 	const char *authors[] = { "Stepan Perun", " ", NULL };
+	const char *artists[] = { "Itzik Gur",    " ", NULL };
 
-	gtk_about_dialog_set_program_name ( dialog, "Helia-light" );
-	gtk_about_dialog_set_version ( dialog, "20.10" );
+	gtk_about_dialog_set_version ( dialog, VERSION );
 	gtk_about_dialog_set_authors ( dialog, authors );
-	gtk_about_dialog_set_website ( dialog,   "https://github.com/vl-nix/helia" );
+	gtk_about_dialog_set_artists ( dialog, artists );
+	gtk_about_dialog_set_program_name   ( dialog, "Helia-light" );
+	gtk_about_dialog_set_logo_icon_name ( dialog, "helia-logo"  );
+	gtk_about_dialog_set_license_type   ( dialog, GTK_LICENSE_GPL_3_0 );
 	gtk_about_dialog_set_copyright ( dialog, "Copyright 2020 Helia-light" );
+	gtk_about_dialog_set_website   ( dialog, "https://github.com/vl-nix/helia" );
 	gtk_about_dialog_set_comments  ( dialog, "Media Player & IPTV & Digital TV \nDVB-T2/S2/C" );
-	gtk_about_dialog_set_license_type ( dialog, GTK_LICENSE_GPL_3_0 );
-	gtk_about_dialog_set_logo_icon_name ( dialog, "applications-multimedia" );
 
-	gtk_dialog_run ( GTK_DIALOG (dialog) );
-	gtk_widget_destroy ( GTK_WIDGET (dialog) );
+	gtk_dialog_run ( GTK_DIALOG ( dialog ) );
+	gtk_widget_destroy ( GTK_WIDGET ( dialog ) );
 }
 
 static void helia_win_base ( Helia *helia )
@@ -309,18 +310,18 @@ static void helia_spinbutton_changed_opacity_win ( GtkSpinButton *button, Helia 
 {
 	uint opacity = (uint)gtk_spin_button_get_value_as_int ( button );
 
-	gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100) );
+	gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100 ) );
 
 	if ( helia->setting ) g_settings_set_uint ( helia->setting, "opacity-win", opacity );
 }
-/*
+
 static void helia_spinbutton_changed_size_i ( GtkSpinButton *button, Helia *helia )
 {
 	uint icon_size = (uint)gtk_spin_button_get_value_as_int ( button );
 
 	if ( helia->setting ) g_settings_set_uint ( helia->setting, "icon-size", icon_size );
 }
-*/
+
 static void helia_clicked_open_f ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
 {
 	gtk_widget_set_visible ( GTK_WIDGET ( helia->popover ), FALSE );
@@ -394,7 +395,7 @@ static GtkSpinButton * helia_header_bar_create_spinbutton ( uint val, uint16_t m
 
 	if ( prf == PREF_OPACITY     ) g_signal_connect ( spinbutton, "changed", G_CALLBACK ( helia_spinbutton_changed_opacity     ), helia );
 	if ( prf == PREF_OPACITY_WIN ) g_signal_connect ( spinbutton, "changed", G_CALLBACK ( helia_spinbutton_changed_opacity_win ), helia );
-	// if ( prf == PREF_ICON_SIZE   ) g_signal_connect ( spinbutton, "changed", G_CALLBACK ( helia_spinbutton_changed_size_i      ), helia );
+	if ( prf == PREF_ICON_SIZE   ) g_signal_connect ( spinbutton, "changed", G_CALLBACK ( helia_spinbutton_changed_size_i      ), helia );
 
 	gtk_widget_show ( GTK_WIDGET ( spinbutton ) );
 
@@ -436,8 +437,8 @@ static GtkMenuButton * helia_menu_button ( Helia *helia )
 	gtk_box_pack_start ( vbox, GTK_WIDGET ( hbox ), FALSE, FALSE, 0 );
 	gtk_widget_show ( GTK_WIDGET ( hbox ) );
 
-	uint16_t /*icon_size = ICON_SIZE,*/ opacity = OPACITY, opacity_win = 100;
-	// if ( helia->setting ) icon_size   = (uint16_t)g_settings_get_uint ( helia->setting, "icon-size" );
+	uint16_t icon_size = ICON_SIZE, opacity = OPACITY, opacity_win = 100;
+	if ( helia->setting ) icon_size   = (uint16_t)g_settings_get_uint ( helia->setting, "icon-size" );
 	if ( helia->setting ) opacity_win = (uint16_t)g_settings_get_uint ( helia->setting, "opacity-win" );
 	if ( helia->setting ) opacity     = (uint16_t)g_settings_get_uint ( helia->setting, "opacity-panel" );
 
@@ -460,7 +461,7 @@ static GtkMenuButton * helia_menu_button ( Helia *helia )
 
 	gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_spinbutton ( opacity,     40, 100, 1, "Opacity-Panel",  PREF_OPACITY,     helia ) ), FALSE, FALSE, 0 );
 	gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_spinbutton ( opacity_win, 40, 100, 1, "Opacity-Window", PREF_OPACITY_WIN, helia ) ), FALSE, FALSE, 0 );
-	// gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_spinbutton ( icon_size,    8,  48, 1, "Icon-size",      PREF_ICON_SIZE,   helia ) ), FALSE, FALSE, 0 );
+	gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_spinbutton ( icon_size,    8,  48, 1, "Icon-size",      PREF_ICON_SIZE,   helia ) ), FALSE, FALSE, 0 );
 
 	gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_chooser_button ( ( rec_dir ) ? rec_dir : g_get_home_dir (), "Record", PREF_RECORD, helia ) ), FALSE, FALSE, 0 );
 	gtk_box_pack_start ( vbox, GTK_WIDGET ( helia_header_bar_create_chooser_button ( path, "Theme", PREF_THEME, helia ) ), FALSE, FALSE, 0 );
@@ -502,13 +503,13 @@ static void helia_window_quit ( G_GNUC_UNUSED GtkWindow *window, Helia *helia )
 	if ( helia->setting ) g_object_unref ( helia->setting );
 }
 
-static void helia_set_settings ( Helia *helia )
+static uint helia_set_settings ( Helia *helia )
 {
-	if ( !helia->setting ) return;
+	if ( !helia->setting ) return 100;
 
 	uint opacity = 100;
 	opacity = g_settings_get_uint ( helia->setting, "opacity-win" );
-	gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100) );
+	// gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100 ) );
 
 	gboolean dark = TRUE;
 	dark = g_settings_get_boolean ( helia->setting, "dark" );
@@ -517,6 +518,8 @@ static void helia_set_settings ( Helia *helia )
 	g_autofree char *theme = NULL;
 	theme = g_settings_get_string ( helia->setting, "theme" );
 	if ( theme && !g_str_has_prefix ( theme, "none" ) ) g_object_set ( gtk_settings_get_default (), "gtk-theme-name", theme, NULL );
+
+	return opacity;
 }
 
 static void helia_size_event ( GtkWindow *window, G_GNUC_UNUSED GdkEventConfigure *ev, Helia *helia )
@@ -576,7 +579,7 @@ static void helia_window_new ( GApplication *app, GFile **files, int n_files )
 	helia->window = (GtkWindow *)gtk_application_window_new ( GTK_APPLICATION (helia) );
 	gtk_window_set_title ( helia->window, "Helia-light");
 	gtk_window_set_default_size ( helia->window, helia->width, helia->height );
-	gtk_window_set_icon_name ( helia->window, "applications-multimedia" );
+	gtk_window_set_icon_name ( helia->window, DEF_ICON );
 	g_signal_connect ( helia->window, "destroy", G_CALLBACK ( helia_window_quit ), helia );
 
 	gtk_widget_set_events ( GTK_WIDGET ( helia->window ), GDK_STRUCTURE_MASK );
@@ -629,8 +632,9 @@ static void helia_window_new ( GApplication *app, GFile **files, int n_files )
 
 	gtk_container_add   ( GTK_CONTAINER ( helia->window ), GTK_WIDGET ( helia->mn_vbox ) );
 
-	helia_set_settings ( helia );
+	uint opacity = helia_set_settings ( helia );
 	gtk_widget_show_all ( GTK_WIDGET ( helia->window ) );
+	gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100 ) );
 
 	player_add_accel ( GTK_APPLICATION ( app ), helia->player );
 

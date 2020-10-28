@@ -63,6 +63,7 @@ void helia_open_net ( GtkWindow *win_base, Player *player )
 	GtkWindow *window = (GtkWindow *)gtk_window_new ( GTK_WINDOW_TOPLEVEL );
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_transient_for ( window, win_base );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
@@ -71,7 +72,7 @@ void helia_open_net ( GtkWindow *win_base, Player *player )
 	GtkBox *h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 	gtk_box_set_spacing ( h_box, 10 );
 
-	const char *icon_net = helia_check_icon_theme ( "helia-net" ) ? "helia-net" : "applications-internet";
+	const char *icon_net = ( helia_check_icon_theme ( "helia-net" ) ) ? "helia-net" : "applications-internet";
 
 	GtkImage *image = helia_create_image ( icon_net, 24 );
 	gtk_widget_set_halign ( GTK_WIDGET ( image ), GTK_ALIGN_START );

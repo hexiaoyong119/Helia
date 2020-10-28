@@ -115,6 +115,7 @@ void helia_eqa_win ( uint16_t opacity, GtkWindow *win_base, GstElement *element 
 	gtk_window_set_title ( window, "Audio EQ" );
 	gtk_window_set_modal ( window, TRUE );
 	gtk_window_set_transient_for ( window, win_base );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
 	uint8_t c = 0;

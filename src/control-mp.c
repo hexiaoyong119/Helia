@@ -28,7 +28,18 @@ struct _ControlMp
 
 G_DEFINE_TYPE ( ControlMp, control_mp, GTK_TYPE_WINDOW )
 
-void control_mp_set_run ( G_GNUC_UNUSED gboolean play, GstElement *element, GtkWindow *win_base, ControlMp *cmp )
+static void control_button_set_icon ( GtkButton *button, const char *name, uint icon_size )
+{
+	GdkPixbuf *pixbuf = gtk_icon_theme_load_icon ( gtk_icon_theme_get_default (), 
+				name, (int)icon_size, GTK_ICON_LOOKUP_USE_BUILTIN, NULL );
+
+	GtkImage *image   = (GtkImage  *)gtk_image_new_from_pixbuf ( pixbuf );
+	gtk_button_set_image ( button, GTK_WIDGET ( image ) );
+
+	if ( pixbuf ) g_object_unref ( pixbuf );
+}
+
+void control_mp_set_run ( gboolean play, GstElement *element, GtkWindow *win_base, ControlMp *cmp )
 {
 	cmp->element = element;
 
@@ -43,7 +54,12 @@ void control_mp_set_run ( G_GNUC_UNUSED gboolean play, GstElement *element, GtkW
 	gtk_widget_show_all ( GTK_WIDGET ( window ) );
 	gtk_widget_set_opacity ( GTK_WIDGET ( window ), ( (float)cmp->opacity / 100 ) );
 
-	gtk_button_set_label ( cmp->button_pause, ( play ) ? "⏸" : "⏵" );
+	gboolean icon = helia_check_icon_theme ( "helia-play" );
+
+	if ( icon )
+		control_button_set_icon ( cmp->button_pause, ( play ) ? "helia-pause" : "helia-play", cmp->icon_size );
+	else
+		gtk_button_set_label ( cmp->button_pause, ( play ) ? "⏸" : "⏵" );
 }
 
 static void control_mp_signal_handler_num ( GtkButton *button, ControlMp *cmp )
@@ -60,7 +76,12 @@ static void control_mp_volume_changed ( G_GNUC_UNUSED GtkScaleButton *button, do
 
 static void control_mp_clicked_stop ( G_GNUC_UNUSED GtkButton *button, ControlMp *cmp )
 {
-	gtk_button_set_label ( cmp->button_pause, "⏵" );
+	gboolean icon = helia_check_icon_theme ( "helia-play" );
+
+	if ( icon )
+		control_button_set_icon ( cmp->button_pause, "helia-play", cmp->icon_size );
+	else
+		gtk_button_set_label ( cmp->button_pause, "⏵" );
 }
 
 static gboolean control_mp_clicked_pause_timeout ( ControlMp *cmp )
@@ -68,7 +89,12 @@ static gboolean control_mp_clicked_pause_timeout ( ControlMp *cmp )
 	gboolean play = FALSE;
 	if ( GST_ELEMENT_CAST ( cmp->element )->current_state == GST_STATE_PLAYING ) play = TRUE;
 
-	gtk_button_set_label ( cmp->button_pause, ( play ) ? "⏸" : "⏵" );
+	gboolean icon = helia_check_icon_theme ( "helia-play" );
+
+	if ( icon )
+		control_button_set_icon ( cmp->button_pause, ( play ) ? "helia-pause" : "helia-play", cmp->icon_size );
+	else
+		gtk_button_set_label ( cmp->button_pause, ( play ) ? "⏸" : "⏵" );
 
 	return FALSE;
 }
@@ -92,6 +118,7 @@ static void control_mp_init ( ControlMp *cmp )
 	gtk_window_set_decorated ( window, FALSE  );
 	gtk_window_set_title ( window, "" );
 	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 	gtk_window_set_default_size ( window, 400, -1 );
 

@@ -31,14 +31,15 @@ struct _Column
 	uint8_t num;
 };
 
-GtkBox * create_treeview_box ( GtkTreeView *treeview );
+GtkBox * create_treeview_box ( GtkTreeView * );
 
-GtkTreeView * create_treeview ( uint8_t col_n, Column column_n[] );
+GtkTreeView * create_treeview ( uint8_t , Column * );
 
-void helia_treeview_goup ( GtkTreeView *tree_view );
+void helia_treeview_goup ( GtkTreeView * );
 
-void helia_treeview_down ( GtkTreeView *tree_view );
+void helia_treeview_down ( GtkTreeView * );
 
-void helia_treeview_remv ( GtkTreeView *tree_view );
+void helia_treeview_remv ( GtkTreeView * );
 
-void helia_treeview_to_file ( const char *file, gboolean mp_tv, GtkTreeView *tree_view );
+void helia_treeview_to_file ( const char *, gboolean , GtkTreeView * );
+

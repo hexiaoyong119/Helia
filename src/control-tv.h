@@ -18,4 +18,4 @@ G_DECLARE_FINAL_TYPE ( ControlTv, control_tv, CONTROLTV, WINDOW, GtkWindow )
 
 ControlTv * control_tv_new (void);
 
-void control_tv_set_run ( gboolean play, GstElement *element, GtkWindow *win_base, ControlTv *ctv );
+void control_tv_set_run ( gboolean , GstElement *, GtkWindow *, ControlTv * );

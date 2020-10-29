@@ -18,9 +18,9 @@ G_DECLARE_FINAL_TYPE ( Dvb, dvb, DVB, BOX, GtkBox )
 
 Dvb * dvb_new (void);
 
-void dvb_quit ( Dvb *dvb );
+void dvb_quit ( Dvb * );
 
-void dvb_run_status ( uint16_t opacity, gboolean status, Dvb *dvb );
+void dvb_run_status ( uint16_t , gboolean , Dvb * );
 
-void dvb_start_channel ( const char *ch, Dvb *dvb );
+void dvb_start_channel ( const char *, Dvb * );
 

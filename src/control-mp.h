@@ -18,4 +18,4 @@ G_DECLARE_FINAL_TYPE ( ControlMp, control_mp, CONTROLMP, WINDOW, GtkWindow )
 
 ControlMp * control_mp_new (void);
 
-void control_mp_set_run ( gboolean play, GstElement *element, GtkWindow *win_base, ControlMp *cmp );
+void control_mp_set_run ( gboolean , GstElement *, GtkWindow *, ControlMp * );

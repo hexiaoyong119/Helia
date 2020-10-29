@@ -11,8 +11,8 @@
 
 #include <gtk/gtk.h>
 
-GtkImage * helia_create_image ( const char *icon, uint16_t size );
+GtkImage * helia_create_image ( const char *, uint16_t  );
 
-gboolean helia_check_icon_theme ( const char *name_icon );
+gboolean helia_check_icon_theme ( const char * );
 
-GtkButton * helia_create_button ( GtkBox *h_box, const char *name, const char *icon_u, uint16_t icon_size );
+GtkButton * helia_create_button ( GtkBox *, const char *, const char *, uint16_t );

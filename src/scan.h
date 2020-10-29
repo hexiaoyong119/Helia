@@ -18,15 +18,15 @@ G_DECLARE_FINAL_TYPE ( Scan, scan, SCAN, WINDOW, GtkWindow )
 
 Scan * scan_new (void);
 
-void helia_dvb_init ( int adapter, int frontend );
+void helia_dvb_init ( int , int );
 
-void scan_set_run ( GtkTreeView *treeview, GtkWindow *win_base, Scan *scan );
+void scan_set_run ( GtkTreeView *, GtkWindow *, Scan * );
 
-void set_lnb_lhs ( GstElement *element, int type_lnb );
+void set_lnb_lhs ( GstElement *, int );
 
-char * scan_get_dvb_info ( int adapter, int frontend );
+char * scan_get_dvb_info ( int , int );
 
-const char * scan_get_info ( const char *data );
+const char * scan_get_info ( const char * );
 
-const char * scan_get_info_descr_vis ( const char *data, int num );
+const char * scan_get_info_descr_vis ( const char *, int );
 

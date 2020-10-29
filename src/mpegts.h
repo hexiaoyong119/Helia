@@ -39,7 +39,7 @@ struct _MpegTs
 
 void mpegts_initialize ( void );
 
-void mpegts_clear ( MpegTs *mpegts );
+void mpegts_clear ( MpegTs * );
 
-void mpegts_parse_section ( GstMessage *message, MpegTs *mpegts );
+void mpegts_parse_section ( GstMessage *, MpegTs * );
 

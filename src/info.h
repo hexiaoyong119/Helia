@@ -12,6 +12,6 @@
 #include <gtk/gtk.h>
 #include <gst/gst.h>
 
-void helia_info_player ( GtkWindow *win_base, GtkTreeView *treeview, GstElement *element );
+void helia_info_player ( GtkWindow *, GtkTreeView *, GstElement * );
 
-GtkComboBoxText * helia_info_dvb ( const char *data, GtkWindow *win_base, GstElement *element );
+GtkComboBoxText * helia_info_dvb ( const char *, GtkWindow *, GstElement * );

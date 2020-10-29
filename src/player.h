@@ -18,11 +18,11 @@ G_DECLARE_FINAL_TYPE ( Player, player, PLAYER, BOX, GtkBox )
 
 Player * player_new (void);
 
-void player_quit ( Player *player );
+void player_quit ( Player * );
 
-void player_run_status ( uint16_t opacity, gboolean status, Player *player );
+void player_run_status ( uint16_t , gboolean , Player * );
 
-void player_add_accel ( GtkApplication *app, Player *player );
+void player_add_accel ( GtkApplication *, Player * );
 
-void player_treeview_append ( const char *name, const char *file, Player *player );
+void player_treeview_append ( const char *, const char *, Player * );
 

@@ -18,12 +18,12 @@ G_DECLARE_FINAL_TYPE ( Slider, slider, HELIA, SLIDER, GtkBox )
 
 Slider * slider_new (void);
 
-GtkScale * slider_get_scale ( Slider *hsl );
+GtkScale * slider_get_scale ( Slider * );
 
-void slider_set_signal_id ( Slider *hsl, ulong signal_id );
+void slider_set_signal_id ( Slider *, ulong  );
 
-void slider_clear_all ( Slider *hsl );
+void slider_clear_all ( Slider * );
 
-void slider_update ( Slider *hsl, double range, double value );
+void slider_update ( Slider *, double , double  );
 
-void slider_set_data ( Slider *hsl, gint64 pos, uint8_t digits_pos, gint64 dur, uint8_t digits_dur, gboolean sensitive );
+void slider_set_data ( Slider *, gint64 , uint8_t , gint64 , uint8_t , gboolean );

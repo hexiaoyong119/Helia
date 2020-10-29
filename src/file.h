@@ -14,28 +14,28 @@
 
 #include <gtk/gtk.h>
 
-void helia_add_dir  ( const char *dir,  Player *player );
-void helia_add_uri  ( const char *file, Player *player );
-void helia_add_file ( const char *file, Player *player );
-void helia_start_file ( GFile **files, int n_files, Player *player );
+void helia_add_dir  ( const char *,  Player * );
+void helia_add_uri  ( const char *, Player * );
+void helia_add_file ( const char *, Player * );
+void helia_start_file ( GFile **, int , Player * );
 
-void helia_open_net ( GtkWindow *win_base, Player *player );
+void helia_open_net ( GtkWindow *, Player * );
 
 /* Returns a newly-allocated string holding the result. Free with free() */
 char * helia_time_to_str ( void );
 
 /* Returns a newly-allocated string holding the result. Free with free() */
-char * helia_uri_get_path ( const char *uri );
+char * helia_uri_get_path ( const char * );
 
 /* Returns a newly-allocated string holding the result. Free with free() */
-char * helia_open_dir ( const char *path, GtkWindow *window );
+char * helia_open_dir ( const char *, GtkWindow * );
 
 /* Returns a newly-allocated string holding the result. Free with free() */
-char * helia_open_file ( const char *path, GtkWindow *window );
+char * helia_open_file ( const char *, GtkWindow * );
 
 /* Returns a GSList containing the filenames. Free the returned list with g_slist_free(), and the filenames with free(). */
-GSList * helia_open_files ( const char *path, GtkWindow *window );
+GSList * helia_open_files ( const char *, GtkWindow * );
 
 /* Returns a newly-allocated string holding the result. Free with free() */
-char * helia_save_file ( const char *dir, const char *file, const char *name_filter, const char *filter_set, GtkWindow *window );
+char * helia_save_file ( const char *, const char *, const char *, const char *, GtkWindow * );
 

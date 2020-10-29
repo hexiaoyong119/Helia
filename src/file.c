@@ -105,6 +105,58 @@ void helia_open_net ( GtkWindow *win_base, Player *player )
 	gtk_widget_show_all ( GTK_WIDGET ( window ) );
 }
 
+static void helia_dialod_add_filter ( GtkFileChooserDialog *dialog, const char *name, const char *filter_set )
+{
+	GtkFileFilter *filter = gtk_file_filter_new ();
+
+	gtk_file_filter_set_name ( filter, name );
+
+	if ( filter_set )
+		gtk_file_filter_add_pattern ( filter, filter_set );
+	else
+	{
+		GList *list = g_content_types_get_registered ();
+
+		while ( list != NULL )
+		{
+			char *type = (char *)list->data;
+
+			if ( g_str_has_prefix ( type, "audio" ) || g_str_has_prefix ( type, "video" ) )
+				gtk_file_filter_add_mime_type ( filter, type );
+
+			list = list->next;
+		}
+
+		g_list_free_full ( list, (GDestroyNotify) g_free );
+	}
+
+	gtk_file_chooser_add_filter ( GTK_FILE_CHOOSER ( dialog ), filter );
+}
+
+static gboolean helia_media_filter ( const char *file_name )
+{
+	gboolean res = FALSE;
+	GError  *err = NULL;
+
+	GFile *file = g_file_new_for_path ( file_name );
+	GFileInfo *file_info = g_file_query_info ( file, "standard::*", 0, NULL, &err );
+
+	const char *content_type = g_file_info_get_content_type ( file_info );
+
+	if ( g_str_has_prefix ( content_type, "audio" ) || g_str_has_prefix ( content_type, "video" ) ) res =  TRUE;
+
+	g_object_unref ( file_info );
+	g_object_unref ( file );
+
+	if ( err )
+	{
+		g_critical ( "%s:: ERROR: %s ", __func__, err->message );
+		g_error_free ( err );
+	}
+
+	return res;
+}
+
 /* Returns a newly-allocated string holding the result. Free with free() */
 char * helia_open_file ( const char *path, GtkWindow *window )
 {
@@ -137,6 +189,9 @@ GSList * helia_open_files ( const char *path, GtkWindow *window )
 					"gtk-cancel", GTK_RESPONSE_CANCEL,
 					"gtk-open",   GTK_RESPONSE_ACCEPT,
 					NULL );
+
+	helia_dialod_add_filter ( dialog, "Media", NULL );
+	helia_dialod_add_filter ( dialog, "All",  "*.*" );
 
 	gtk_window_set_icon_name ( GTK_WINDOW ( dialog ), "document-open" );
 
@@ -176,15 +231,6 @@ char * helia_open_dir ( const char *path, GtkWindow *window )
 	return dirname;
 }
 
-static void helia_dialod_add_filter ( GtkFileChooserDialog *dialog, const char *name, const char *filter_set )
-{
-	GtkFileFilter *filter = gtk_file_filter_new ();
-
-	gtk_file_filter_set_name ( filter, name );
-	gtk_file_filter_add_pattern ( filter, filter_set );
-	gtk_file_chooser_add_filter ( GTK_FILE_CHOOSER ( dialog ), filter );
-}
-
 /* Returns a newly-allocated string holding the result. Free with free() */
 char * helia_save_file ( const char *dir, const char *file, const char *name_filter, const char *filter_set, GtkWindow *window )
 {
@@ -194,7 +240,7 @@ char * helia_save_file ( const char *dir, const char *file, const char *name_fil
 					"gtk-save",    GTK_RESPONSE_ACCEPT,
 					NULL );
 
-	helia_dialod_add_filter ( dialog, name_filter,  filter_set  );
+	helia_dialod_add_filter ( dialog, name_filter, filter_set );
 
 	gtk_window_set_icon_name ( GTK_WINDOW ( dialog ), "document-save" );
 
@@ -281,7 +327,10 @@ void helia_add_dir ( const char *dir_path, Player *player )
 				if ( g_str_has_suffix ( path_name, "m3u" ) || g_str_has_suffix ( path_name, "M3U" ) )
 					helia_add_m3u ( path_name, player );
 				else
-					player_treeview_append ( name, path_name, player );
+				{
+					if ( helia_media_filter ( path_name ) )
+						player_treeview_append ( name, path_name, player );
+				}
 			}
 
 			free ( path_name );

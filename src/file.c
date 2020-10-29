@@ -38,6 +38,103 @@ char * helia_uri_get_path ( const char *uri )
 	return path;
 }
 
+static GtkBox * helia_keyb_win_create_play_pause ( const char *name_a, const char *name_b )
+{
+	GtkImage *image_a = helia_create_image ( name_a, 32 );
+	GtkImage *image_b = helia_create_image ( name_b, 32 );
+
+	GtkBox *hbox = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+	gtk_widget_set_halign ( GTK_WIDGET ( hbox ), GTK_ALIGN_START );
+
+	gtk_box_pack_start ( hbox, GTK_WIDGET ( image_a ), FALSE, FALSE, 0 );
+	gtk_box_pack_start ( hbox, GTK_WIDGET ( image_b ), FALSE, FALSE, 5 );
+
+	return hbox;
+}
+
+void helia_keyb_win ( GtkWindow *win_base )
+{
+	GtkWindow *window = (GtkWindow *)gtk_window_new ( GTK_WINDOW_TOPLEVEL );
+	gtk_window_set_title ( window, "" );
+	gtk_window_set_modal ( window, TRUE );
+	gtk_window_set_icon_name ( window, DEF_ICON );
+	gtk_window_set_transient_for ( window, win_base );
+	gtk_window_set_default_size  ( window, 300, -1  );
+	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
+
+	GtkBox *m_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL,   0 );
+	GtkBox *h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+
+	GtkBox *g_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
+	gtk_widget_set_margin_start ( GTK_WIDGET ( g_box ), 10 );
+	gtk_widget_set_margin_end   ( GTK_WIDGET ( g_box ), 10 );
+
+	GtkLabel *label = (GtkLabel *)gtk_label_new ( "Media Player" );
+	gtk_box_pack_start ( g_box, GTK_WIDGET ( label ), TRUE, TRUE, 10 );
+
+	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
+	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ), TRUE );
+	gtk_grid_set_row_homogeneous    ( GTK_GRID ( grid ) ,TRUE );
+	gtk_box_pack_start ( g_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
+
+	const struct data_a { const char *image; const char *accel; } data_a_n[] =
+	{
+		{ "helia-add", "Ctrl + O" },
+		{ "helia-dir", "Ctrl + D" },
+		{ "helia-net", "Ctrl + L" },
+		{ NULL, NULL },
+		{ "helia-editor", "Ctrl + H" },
+		{ "helia-slider", "Ctrl + Z" },
+		// { "helia-muted",  "Ctrl + M" },
+		// { "helia-stop",   "Ctrl + X" },
+		{ NULL, NULL },
+		{ "helia-step", " . " },
+		{ "helia-play", "␣"   }
+	};
+
+	uint8_t d = 0; for ( d = 0; d < G_N_ELEMENTS ( data_a_n ); d++ )
+	{
+		if ( !data_a_n[d].image )
+		{
+			gtk_grid_attach ( GTK_GRID ( grid ), gtk_label_new ( "" ), 0, d, 1, 1 );
+			continue;
+		}
+
+		if ( d == 8 )
+		{
+			GtkBox *hbox = helia_keyb_win_create_play_pause ( "helia-play", "helia-pause" );
+			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( hbox ), 0, d, 1, 1 );
+
+			GtkLabel *label = (GtkLabel *)gtk_label_new ( data_a_n[d].accel );
+			gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_END );
+			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 2, d, 1, 1 );
+
+			continue;
+		}
+
+		GtkImage *image = helia_create_image ( data_a_n[d].image, 32 );
+		gtk_widget_set_halign ( GTK_WIDGET ( image ), GTK_ALIGN_START );
+		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( image ), 0, d, 1, 1 );
+
+		GtkLabel *label = (GtkLabel *)gtk_label_new ( data_a_n[d].accel );
+		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_END );
+		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 2, d, 1, 1 );
+	}
+
+	gtk_box_pack_start ( m_box, GTK_WIDGET ( g_box ), TRUE, TRUE, 0 );
+
+	h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
+
+	GtkButton *button_close = helia_create_button ( h_box, "helia-exit", "🞬", ICON_SIZE );
+	g_signal_connect_swapped ( button_close, "clicked", G_CALLBACK ( gtk_widget_destroy ), window );
+
+	gtk_box_pack_end ( m_box, GTK_WIDGET ( h_box ), FALSE, FALSE, 5 );
+
+	gtk_container_set_border_width ( GTK_CONTAINER ( m_box ), 10 );
+	gtk_container_add   ( GTK_CONTAINER ( window ), GTK_WIDGET ( m_box ) );
+	gtk_widget_show_all ( GTK_WIDGET ( window ) );
+}
+
 static void helia_open_net_play ( const char *file, Player *player )
 {
 	if ( file && strlen ( file ) > 0 ) helia_add_uri ( file, player );

@@ -14,10 +14,12 @@
 
 #include <gtk/gtk.h>
 
-void helia_add_dir  ( const char *,  Player * );
+void helia_add_dir  ( const char *, Player * );
 void helia_add_uri  ( const char *, Player * );
 void helia_add_file ( const char *, Player * );
 void helia_start_file ( GFile **, int , Player * );
+
+void helia_keyb_win ( GtkWindow * );
 
 void helia_open_net ( GtkWindow *, Player * );
 

@@ -372,6 +372,13 @@ static void helia_clicked_dark ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
 	if ( helia->setting ) g_settings_set_boolean ( helia->setting, "dark", !dark );
 }
 
+static void helia_clicked_keyb ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
+{
+	gtk_widget_set_visible ( GTK_WIDGET ( helia->popover ), FALSE );
+
+	helia_keyb_win ( helia->window );
+}
+
 static void helia_clicked_info ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
 {
 	gtk_widget_set_visible ( GTK_WIDGET ( helia->popover ), FALSE );
@@ -469,6 +476,7 @@ static GtkMenuButton * helia_menu_button ( Helia *helia )
 	struct Data data_n[] =
 	{
 		{ "⏾", "helia-dark",  helia_clicked_dark },
+		{ "🖮", "helia-keyb",  helia_clicked_keyb },
 		{ "🛈", "helia-info",  helia_clicked_info },
 		{ "⏻", "helia-quit",  helia_clicked_quit }
 	};

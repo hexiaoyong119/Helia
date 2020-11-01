@@ -2,7 +2,7 @@
 
 * Media Player
   * Drag and Drop: files, folders, playlists - [M3U](https://en.wikipedia.org/wiki/M3U)
-  * Record IPTV ( either record or play )
+  * Record IPTV
 
 * Digital TV
   * Record
@@ -15,7 +15,7 @@
 
 #### Dependencies
 
-* gcc, make, meson
+* gcc, meson
 * libgtk 3.0 ( & dev )
 * gstreamer 1.0 ( & dev )
 * all gst-plugins 1.0 ( & dev )

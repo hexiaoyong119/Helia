@@ -39,6 +39,7 @@ struct _Player
 	Slider *slider;
 
 	GstElement *playbin;
+	GstElement *volume;
 	GstElement *videoblnc;
 	GstElement *equalizer;
 
@@ -51,10 +52,10 @@ struct _Player
 	ulong xid;
 	uint16_t opacity;
 
-	gboolean rec_mp;
-	gboolean debug;
 	gboolean run;
 	gboolean quit;
+	gboolean debug;
+	gboolean rec_video;
 };
 
 G_DEFINE_TYPE ( Player, player, GTK_TYPE_BOX );
@@ -88,6 +89,9 @@ static void player_stop_record ( Player *player )
 	gst_object_unref ( player->pipeline_rec );
 
 	player->pipeline_rec = NULL;
+
+	slider_clear_all ( player->slider );
+	gtk_widget_queue_draw ( GTK_WIDGET ( player->video ) );
 }
 
 static void player_set_base ( Player *player )
@@ -129,11 +133,17 @@ static void player_set_eqv ( Player *player )
 
 static void player_set_mute ( Player *player )
 {
-	if ( GST_ELEMENT_CAST ( player->playbin )->current_state != GST_STATE_PLAYING ) return;
+	GstElement *volume = NULL;
+
+	if ( player->pipeline_rec && GST_ELEMENT_CAST ( player->pipeline_rec )->current_state == GST_STATE_PLAYING ) volume = player->volume;
+
+	if ( GST_ELEMENT_CAST ( player->playbin )->current_state == GST_STATE_PLAYING ) volume = player->playbin;
+
+	if ( !volume ) return;
 
 	gboolean mute = FALSE;
-	g_object_get ( player->playbin, "mute", &mute, NULL );
-	g_object_set ( player->playbin, "mute", !mute, NULL );
+	g_object_get ( volume, "mute", &mute, NULL );
+	g_object_set ( volume, "mute", !mute, NULL );
 }
 
 static void player_set_pause ( Player *player )
@@ -399,13 +409,16 @@ static void player_msg_err_rec ( G_GNUC_UNUSED GstBus *bus, GstMessage *msg, Pla
 
 static gboolean player_update_record ( Player *player )
 {
-	if ( player->quit || player->pipeline_rec == NULL )
+	if ( player->quit ) return FALSE;
+
+	if ( player->pipeline_rec == NULL )
 	{
 		g_object_unref ( player->file_rec );
 		gtk_label_set_text ( player->label_rec, "" );
 
 		return FALSE;
 	}
+
 
 	GFileInfo *file_info = g_file_query_info ( player->file_rec, "standard::*", 0, NULL, NULL );
 
@@ -440,13 +453,13 @@ static void player_pad_add_hls ( GstElement *element, GstPad *pad, GstElement *e
 	else
 		g_message ( "%s:: linking pad failed ", __func__ );
 }
-
-static GstElement * player_create_rec_bin ( gboolean found_hls, const char *uri, const char *rec )
+/*
+static GstElement * player_create_rec_bin ( gboolean f_hls, const char *uri, const char *rec )
 {
 	GstElement *pipeline_rec = gst_pipeline_new ( "pipeline-record" );
 
 	GstElement *element_src  = gst_element_make_from_uri ( GST_URI_SRC, uri, NULL, NULL );
-	GstElement *element_hq   = gst_element_factory_make  ( ( found_hls ) ? "hlsdemux" : "queue2", NULL );
+	GstElement *element_hq   = gst_element_factory_make  ( ( f_hls ) ? "hlsdemux" : "queue2", NULL );
 	GstElement *element_sinc = gst_element_factory_make  ( "filesink", NULL );
 
 	if ( !pipeline_rec || !element_hq || !element_sinc ) return NULL;
@@ -461,11 +474,117 @@ static GstElement * player_create_rec_bin ( gboolean found_hls, const char *uri,
 		gst_element_link ( element_hq, element_sinc );
 
 	if ( g_object_class_find_property ( G_OBJECT_GET_CLASS ( element_src ), "location" ) )
-		g_object_set ( element_src,  "location", uri, NULL );
+		g_object_set ( element_src, "location", uri, NULL );
 	else
 		g_object_set ( element_src, "uri", uri, NULL );
 
 	g_object_set ( element_sinc, "location", rec, NULL );
+
+	return pipeline_rec;
+}
+*/
+
+static gboolean player_pad_check_type ( GstPad *pad, const char *type )
+{
+	gboolean ret = FALSE;
+
+	GstCaps *caps = gst_pad_get_current_caps ( pad );
+
+	const char *name = gst_structure_get_name ( gst_caps_get_structure ( caps, 0 ) );
+
+	if ( g_str_has_prefix ( name, type ) ) ret = TRUE;
+
+	gst_caps_unref (caps);
+
+	return ret;
+}
+
+static void player_pad_link ( GstPad *pad, GstElement *element, const char *name )
+{
+	GstPad *pad_va_sink = gst_element_get_static_pad ( element, "sink" );
+
+	if ( gst_pad_link ( pad, pad_va_sink ) == GST_PAD_LINK_OK )
+		gst_object_unref ( pad_va_sink );
+	else
+		g_debug ( "%s:: linking demux/decode name %s video/audio pad failed ", __func__, name );
+}
+
+static void player_pad_demux_audio ( G_GNUC_UNUSED GstElement *element, GstPad *pad, GstElement *element_audio )
+{
+	if ( player_pad_check_type ( pad, "audio" ) ) player_pad_link ( pad, element_audio, "demux audio" );
+}
+
+static void player_pad_demux_video ( G_GNUC_UNUSED GstElement *element, GstPad *pad, GstElement *element_video )
+{
+	if ( player_pad_check_type ( pad, "video" ) ) player_pad_link ( pad, element_video, "demux video" );
+}
+
+static void player_pad_decode ( G_GNUC_UNUSED GstElement *element, GstPad *pad, GstElement *element_va )
+{
+	player_pad_link ( pad, element_va, "decode  audio / video" );
+}
+
+static GstElement * player_create_rec_bin ( gboolean f_hls, gboolean video, const char *uri, const char *rec, Player *player )
+{
+	GstElement *pipeline_rec = gst_pipeline_new ( "pipeline-record" );
+
+	if ( !pipeline_rec ) return NULL;
+
+	const char *name = ( f_hls ) ? "hlsdemux" : "queue2";
+
+	struct rec_all { const char *name; } rec_all_n[] =
+	{
+		{ "souphttpsrc" }, { name        }, { "tee"          }, { "queue2"        }, { "decodebin"     },
+		{ "queue2"      }, { "decodebin" }, { "audioconvert" }, { "volume"        }, { "autoaudiosink" },
+		{ "queue2"      }, { "decodebin" }, { "videoconvert" }, { "autovideosink" },
+		{ "queue2"      }, { "filesink"  }
+	};
+
+	GstElement *elements[ G_N_ELEMENTS ( rec_all_n ) ];
+
+	uint8_t c = 0; for ( c = 0; c < G_N_ELEMENTS ( rec_all_n ); c++ )
+	{
+		if ( !video && ( c > 9 && c < 14 ) ) continue;
+
+		if ( c == 0 )
+			elements[c] = gst_element_make_from_uri ( GST_URI_SRC, uri, NULL, NULL );
+		else
+			elements[c] = gst_element_factory_make  ( rec_all_n[c].name, NULL );
+
+		if ( !elements[c] )
+		{
+			g_critical ( "%s:: element (factory make) - %s not created. \n", __func__, rec_all_n[c].name );
+			return NULL;
+		}
+
+		gst_bin_add ( GST_BIN ( pipeline_rec ), elements[c] );
+
+		if (  c == 0 || c == 2 || c == 5 || c == 7 || c == 10 || c == 12 || c == 14 ) continue;
+
+		gst_element_link ( elements[c-1], elements[c] );
+	}
+
+	if ( f_hls )
+		g_signal_connect ( elements[1], "pad-added", G_CALLBACK ( player_pad_add_hls ), elements[2] );
+	else
+		gst_element_link ( elements[1], elements[2] );
+
+	g_signal_connect ( elements[4], "pad-added", G_CALLBACK ( player_pad_demux_audio ), elements[5] );
+	if ( video ) g_signal_connect ( elements[4], "pad-added", G_CALLBACK ( player_pad_demux_video ), elements[10] );
+
+	g_signal_connect ( elements[6], "pad-added", G_CALLBACK ( player_pad_decode ), elements[7] );
+	if ( video ) g_signal_connect ( elements[11], "pad-added", G_CALLBACK ( player_pad_decode ), elements[12] );
+
+	if ( g_object_class_find_property ( G_OBJECT_GET_CLASS ( elements[0] ), "location" ) )
+		g_object_set ( elements[0], "location", uri, NULL );
+	else
+		g_object_set ( elements[0], "uri", uri, NULL );
+
+	gst_element_link ( elements[2], elements[14] );
+
+	g_object_set ( elements[15], "location", rec, NULL );
+
+	player->volume = elements[8];
 
 	return pipeline_rec;
 }
@@ -478,6 +597,11 @@ static void player_record ( Player *player )
 		g_object_get ( player->playbin, "current-uri", &uri, NULL );
 
 		if ( !uri ) return;
+
+		int n_video = 0;
+		g_object_get ( player->playbin, "n-video", &n_video, NULL );
+
+		player->rec_video = ( n_video > 0 ) ? TRUE : FALSE;
 
 		g_autofree char *rec_dir = NULL;
 		g_autofree char *dt = helia_time_to_str ();
@@ -497,13 +621,13 @@ static void player_record ( Player *player )
 
 		player_set_stop ( player );
 
-		player->pipeline_rec = player_create_rec_bin ( hls, uri, path );
+		player->pipeline_rec = player_create_rec_bin ( hls, player->rec_video, uri, path, player );
 
 		if ( player->pipeline_rec == NULL ) return;
 
 		GstBus *bus = gst_element_get_bus ( player->pipeline_rec );
-
 		gst_bus_add_signal_watch_full ( bus, G_PRIORITY_DEFAULT );
+		gst_bus_set_sync_handler ( bus, (GstBusSyncHandler)player_sync_handler, player, NULL );
 
 		g_signal_connect ( bus, "message::eos",   G_CALLBACK ( player_msg_eos_rec ), player );
 		g_signal_connect ( bus, "message::error", G_CALLBACK ( player_msg_err_rec ), player );
@@ -707,11 +831,15 @@ static gboolean player_video_press_event ( GtkDrawingArea *draw, GdkEventButton 
 
 	if ( event->button == 3 )
 	{
+		GstElement *element = player->playbin;
+
 		gboolean play = FALSE;
 		if ( GST_ELEMENT_CAST ( player->playbin )->current_state == GST_STATE_PLAYING ) play = TRUE;
 
+		if ( player->pipeline_rec && GST_ELEMENT_CAST ( player->pipeline_rec )->current_state == GST_STATE_PLAYING ) { element = player->volume; play = TRUE; }
+
 		ControlMp *cmp = control_mp_new ();
-		control_mp_set_run ( play, player->playbin, window_base, cmp );
+		control_mp_set_run ( play, element, window_base, cmp );
 		g_signal_connect ( cmp, "button-click-num", G_CALLBACK ( player_clicked_handler ), player );
 	}
 
@@ -743,6 +871,8 @@ static void player_video_draw_black ( GtkDrawingArea *widget, cairo_t *cr, const
 
 static gboolean player_video_draw_check ( Player *player )
 {
+	if ( player->pipeline_rec && player->rec_video ) return FALSE;
+
 	if ( GST_ELEMENT_CAST ( player->playbin )->current_state < GST_STATE_PAUSED ) return TRUE;
 
 	int n_video = 0;

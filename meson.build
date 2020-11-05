@@ -1,4 +1,4 @@
-project('helia-light', 'c', version: '20.11', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
+project('helia', 'c', version: '21.0', meson_version: '>= 0.50.0', default_options: [ 'warning_level=2', 'c_std=gnu11'])
 
 cc = meson.get_compiler('c')
 
@@ -12,7 +12,9 @@ helia_src = c.stdout().strip().split('\n')
 
 helia_src += res
 
+libgstpbutils = cc.find_library('libgstpbutils-1.0', required: true)
+
 helia_deps  = [dependency('gtk+-3.0', version: '>= 3.22')]
-helia_deps += [dependency('gstreamer-video-1.0'), dependency('gstreamer-mpegts-1.0')]
+helia_deps += [dependency('gstreamer-video-1.0'), dependency('gstreamer-mpegts-1.0'), libgstpbutils]
 
 executable(meson.project_name(), helia_src, dependencies: helia_deps, c_args: c_args, install: true)

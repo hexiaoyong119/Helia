@@ -21,9 +21,11 @@
     <file preprocess="to-pixdata">helia-ok.png</file>
     <file preprocess="to-pixdata">helia-pause.png</file>
     <file preprocess="to-pixdata">helia-play.png</file>
+    <file preprocess="to-pixdata">helia-pref.png</file>
     <file preprocess="to-pixdata">helia-quit.png</file>
     <file preprocess="to-pixdata">helia-record.png</file>
     <file preprocess="to-pixdata">helia-remove.png</file>
+    <file preprocess="to-pixdata">helia-repeat.png</file>
     <file preprocess="to-pixdata">helia-save.png</file>
     <file preprocess="to-pixdata">helia-set.png</file>
     <file preprocess="to-pixdata">helia-slider.png</file>
@@ -34,5 +36,6 @@
     <file preprocess="to-pixdata">helia-unset.png</file>
     <file preprocess="to-pixdata">helia-up.png</file>
     <file preprocess="to-pixdata">helia-video.png</file>
+    <file preprocess="to-pixdata">helia-warning.png</file>
   </gresource>
 </gresources>

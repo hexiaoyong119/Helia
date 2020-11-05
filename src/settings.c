@@ -12,14 +12,14 @@
 GSettings * settings_init ( void )
 {
 	GSettingsSchemaSource *schemasrc = g_settings_schema_source_get_default ();
-	GSettingsSchema *schema = g_settings_schema_source_lookup ( schemasrc, "org.gnome.helia-light", FALSE );
+	GSettingsSchema *schema = g_settings_schema_source_lookup ( schemasrc, "org.gnome.helia", FALSE );
 
 	GSettings *setting = NULL;
 
-	if ( schema == NULL ) g_critical ( "%s:: schema: org.gnome.helia-light - not installed.", __func__ );
+	if ( schema == NULL ) g_critical ( "%s:: schema: org.gnome.helia - not installed.", __func__ );
 	if ( schema == NULL ) return NULL;
 
-	setting = g_settings_new ( "org.gnome.helia-light" );
+	setting = g_settings_new ( "org.gnome.helia" );
 
 	return setting;
 }

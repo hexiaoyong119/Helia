@@ -415,6 +415,9 @@ void scan_set_run ( GtkTreeView *treeview_base, GtkWindow *win_base, Scan *scan 
 	gtk_window_set_transient_for ( window, win_base );
 
 	gtk_widget_show_all ( GTK_WIDGET ( window ) );
+
+	double opacity = gtk_widget_get_opacity ( GTK_WIDGET ( win_base ) );
+	gtk_widget_set_opacity ( GTK_WIDGET ( window ), opacity );
 }
 
 static void scan_message_dialog ( const char *f_error, const char *file_or_info, GtkMessageType mesg_type, Scan *scan )
@@ -524,7 +527,7 @@ static void scan_lnb_win ( G_GNUC_UNUSED GtkButton *button, Scan *scan )
 	GtkBox *m_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ), TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
 	gtk_grid_set_row_spacing ( grid, 5 );
 	gtk_box_pack_start ( m_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
 
@@ -539,14 +542,14 @@ static void scan_lnb_win ( G_GNUC_UNUSED GtkButton *button, Scan *scan )
 	{
 		GtkLabel *label = (GtkLabel *)gtk_label_new ( data_a_n[d].text );
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_START );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 0, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 0, d, 1, 1 );
 
 		GtkSpinButton *spinbutton = (GtkSpinButton *)gtk_spin_button_new_with_range ( lnb_type_lhs_n[LNB_MNL].min_val, lnb_type_lhs_n[LNB_MNL].max_val, 1 );
 		gtk_widget_set_name ( GTK_WIDGET ( spinbutton ), data_a_n[d].name );
 		gtk_spin_button_set_value ( spinbutton, data_a_n[d].value );
 		g_signal_connect ( spinbutton, "changed", G_CALLBACK ( scan_lnb_changed_spin_all ), element );
 
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
 	}
 
 	GtkButton *button_close = helia_create_button ( NULL, "helia-exit", "🞬", ICON_SIZE );
@@ -634,7 +637,7 @@ static GtkBox * scan_dvb_all ( uint8_t num, const DvbTypes *dvball, G_GNUC_UNUSE
 	gtk_widget_set_margin_end   ( GTK_WIDGET ( g_box ), 10 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ), TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
 	gtk_box_pack_start ( g_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
 
 	GtkLabel *label;
@@ -648,13 +651,13 @@ static GtkBox * scan_dvb_all ( uint8_t num, const DvbTypes *dvball, G_GNUC_UNUSE
 	{
 		label = (GtkLabel *)gtk_label_new ( dvball[d].param );
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_START );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 0, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 0, d, 1, 1 );
 
 		if ( !dvball[d].descr )
 		{
 			spinbutton = (GtkSpinButton *) gtk_spin_button_new_with_range ( dvball[d].min, dvball[d].max, 1 );
 			gtk_widget_set_name ( GTK_WIDGET ( spinbutton ), dvball[d].param );
-			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
+			gtk_grid_attach ( grid, GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
 
 			g_signal_connect ( spinbutton, "changed", G_CALLBACK ( scan_changed_spin_all ), scan );
 		}
@@ -664,9 +667,9 @@ static GtkBox * scan_dvb_all ( uint8_t num, const DvbTypes *dvball, G_GNUC_UNUSE
 			gtk_widget_set_name ( GTK_WIDGET ( scan_combo_box ), dvball[d].param );
 
 			if ( g_str_has_prefix ( dvball[d].param, "LNB" ) )
-				gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( scan_create_lnb_m ( scan_combo_box, scan ) ), 1, d, 1, 1 );
+				gtk_grid_attach ( grid, GTK_WIDGET ( scan_create_lnb_m ( scan_combo_box, scan ) ), 1, d, 1, 1 );
 			else
-				gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( scan_combo_box ), 1, d, 1, 1 );
+				gtk_grid_attach ( grid, GTK_WIDGET ( scan_combo_box ), 1, d, 1, 1 );
 
 			for ( c = 0; c < G_N_ELEMENTS ( param_dvb_n ); c++ )
 			{
@@ -821,7 +824,7 @@ static GtkBox * scan_device ( Scan *scan )
 	gtk_widget_set_margin_end   ( GTK_WIDGET ( g_box ), 10 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ), TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
 	gtk_grid_set_row_spacing ( grid, 5 );
 	gtk_box_pack_start ( g_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
 
@@ -838,7 +841,7 @@ static GtkBox * scan_device ( Scan *scan )
 	{
 		GtkLabel *label = (GtkLabel *)gtk_label_new ( data_n[d].text );
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), ( d == 0 ) ? GTK_ALIGN_CENTER : GTK_ALIGN_START );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 0, d, ( d == 0 ) ? 2 : 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 0, d, ( d == 0 ) ? 2 : 1, 1 );
 
 		if ( d == 0 ) scan->label_device = label;
 		if ( d == 0 || d == 3 ) continue;
@@ -847,7 +850,7 @@ static GtkBox * scan_device ( Scan *scan )
 		gtk_spin_button_set_value ( spinbutton, data_n[d].value );
 		g_signal_connect ( spinbutton, "changed", G_CALLBACK ( data_n[d].f ), scan );
 
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( spinbutton ), 1, d, 1, 1 );
 	}
 
 	GtkComboBoxText *combo_delsys = (GtkComboBoxText *) gtk_combo_box_text_new ();
@@ -861,7 +864,7 @@ static GtkBox * scan_device ( Scan *scan )
 
 	gtk_combo_box_set_active ( GTK_COMBO_BOX ( combo_delsys ), num );
 
-	gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( combo_delsys ), 1, 3, 1, 1 );
+	gtk_grid_attach ( grid, GTK_WIDGET ( combo_delsys ), 1, 3, 1, 1 );
 
 	gtk_box_pack_start ( g_box, GTK_WIDGET ( scan_convert ( scan ) ), TRUE, TRUE, 10 );
 
@@ -1314,7 +1317,7 @@ static void scan_create ( Scan *scan )
 {
 	mpegts_initialize ();
 
-	scan->mpegts = g_new ( MpegTs, 1 );
+	scan->mpegts = g_new0 ( MpegTs, 1 );
 	scan->mpegts->debug = scan->debug;
 
 	GstElement *tsparse, *filesink;

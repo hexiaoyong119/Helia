@@ -18,6 +18,7 @@
 #include "helia-eqa.h"
 #include "helia-eqv.h"
 #include "control-tv.h"
+#include "enc-prop.h"
 #include "settings.h"
 
 #include <gdk/gdk.h>
@@ -43,17 +44,23 @@ struct _Dvb
 	GstElement *videoblnc;
 	GstElement *equalizer;
 
+	GstElement *enc_video;
+	GstElement *enc_audio;
+	GstElement *enc_muxer;
+
+	time_t t_hide;
+
 	ulong xid;
 	uint16_t sid;
 	uint16_t opacity;
 
 	char *data;
 
-	gboolean rec_tv;
-	gboolean checked_video;
-	gboolean debug;
 	gboolean run;
 	gboolean quit;
+	gboolean debug;
+	gboolean rec_tv;
+	gboolean checked_video;
 };
 
 G_DEFINE_TYPE ( Dvb, dvb, GTK_TYPE_BOX );
@@ -169,7 +176,41 @@ static void dvb_clicked_handler ( G_GNUC_UNUSED ControlTv *ctv, uint8_t num, Dvb
 	if ( funcs[num] ) funcs[num] ( dvb );
 }
 
+static void dvb_enc_prop_set_audio_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Dvb *dvb )
+{
+	gst_object_unref ( dvb->enc_audio );
 
+	dvb->enc_audio = GST_ELEMENT ( object );
+}
+static void dvb_enc_prop_set_video_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Dvb *dvb )
+{
+	gst_object_unref ( dvb->enc_video );
+
+	dvb->enc_video = GST_ELEMENT ( object );
+}
+static void dvb_enc_prop_set_muxer_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Dvb *dvb )
+{
+	gst_object_unref ( dvb->enc_muxer );
+
+	dvb->enc_muxer = GST_ELEMENT ( object );
+}
+
+static void dvb_playlist_prop ( G_GNUC_UNUSED GtkButton *button, Dvb *dvb )
+{
+	GtkWindow *win_base = GTK_WINDOW ( gtk_widget_get_toplevel ( GTK_WIDGET ( dvb->video ) ) );
+
+	EncProp *ep = enc_prop_new ();
+	enc_prop_set_run ( win_base, dvb->enc_video, dvb->enc_audio, dvb->enc_muxer, FALSE, ep );
+
+	g_signal_connect ( ep, "enc-prop-set-audio", G_CALLBACK ( dvb_enc_prop_set_audio_handler ), dvb );
+	g_signal_connect ( ep, "enc-prop-set-video", G_CALLBACK ( dvb_enc_prop_set_video_handler ), dvb );
+	g_signal_connect ( ep, "enc-prop-set-muxer", G_CALLBACK ( dvb_enc_prop_set_muxer_handler ), dvb );
+}
+
+static void dvb_playlist_scan ( G_GNUC_UNUSED GtkButton *button, Dvb *dvb )
+{
+	dvb_set_scan ( dvb );
+}
 
 static void dvb_playlist_hide ( G_GNUC_UNUSED GtkButton *button, Dvb *dvb )
 {
@@ -178,7 +219,7 @@ static void dvb_playlist_hide ( G_GNUC_UNUSED GtkButton *button, Dvb *dvb )
 
 static void dvb_playlist_save ( G_GNUC_UNUSED GtkButton *button, Dvb *dvb )
 {
-	GtkTreeModel *model = gtk_tree_view_get_model ( GTK_TREE_VIEW ( dvb->treeview ) );
+	GtkTreeModel *model = gtk_tree_view_get_model ( dvb->treeview );
 
 	int ind = gtk_tree_model_iter_n_children ( model, NULL );
 
@@ -207,7 +248,13 @@ static GtkBox * dvb_create_treeview_box ( Dvb *dvb )
 	h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 	gtk_box_set_spacing ( h_box, 5 );
 
-	GtkButton *button = helia_create_button ( h_box, "helia-save", "🖴", ICON_SIZE );
+	GtkButton *button = helia_create_button ( h_box, "helia-pref", "🛠", ICON_SIZE );
+	g_signal_connect ( button, "clicked", G_CALLBACK ( dvb_playlist_prop ), dvb );
+
+	button = helia_create_button ( h_box, "helia-display", "📡", ICON_SIZE );
+	g_signal_connect ( button, "clicked", G_CALLBACK ( dvb_playlist_scan ), dvb );
+
+	button = helia_create_button ( h_box, "helia-save", "🖴", ICON_SIZE );
 	g_signal_connect ( button, "clicked", G_CALLBACK ( dvb_playlist_save ), dvb );
 
 	button = helia_create_button ( h_box, "helia-exit", "🞬", ICON_SIZE );
@@ -648,14 +695,14 @@ GstElement * dvb_iterate_element ( GstElement *it_e, const char *name1, const ch
 	return element_ret;
 }
 
-static GstElementFactory * dvb_find_factory ( GstCaps *caps, guint64 e_num )
+static GstElementFactory * dvb_find_factory ( GstCaps *caps, guint64 num )
 {
 	GList *list, *list_filter;
 
 	static GMutex mutex;
 
 	g_mutex_lock ( &mutex );
-		list = gst_element_factory_list_get_elements ( e_num, GST_RANK_MARGINAL );
+		list = gst_element_factory_list_get_elements ( num, GST_RANK_MARGINAL );
 		list_filter = gst_element_factory_list_filter ( list, caps, GST_PAD_SINK, gst_caps_is_fixed ( caps ) );
 	g_mutex_unlock ( &mutex );
 
@@ -715,10 +762,10 @@ static void dvb_typefind_parser ( GstElement *typefind, uint probability, GstCap
 
 	gst_element_set_state ( element, GST_STATE_PLAYING );
 
-	g_debug ( "%s: probability %d%% | name_caps %s ",__func__, probability, name_caps );
+	g_debug ( "%s: probability %d%% | name_caps %s ", __func__, probability, name_caps );
 }
 
-static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video_enable, Dvb *dvb )
+static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video, Dvb *dvb )
 {
 	struct dvb_all_list { const char *name; } dvb_all_list_n[] =
 	{
@@ -736,8 +783,8 @@ static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video_enable, D
 
 	uint8_t c = 0; for ( c = 0; c < G_N_ELEMENTS ( dvb_all_list_n ); c++ )
 	{
-		if ( !video_enable && ( c > 7 && c < 14 ) ) continue;
-		if ( !video_enable && ( c == 16 || c == 17 ) ) continue;
+		if ( !video && ( c > 7 && c < 14 ) ) continue;
+		if ( !video && ( c == 16 || c == 17 ) ) continue;
 
 		elements[c] = gst_element_factory_make ( dvb_all_list_n[c].name, NULL );
 
@@ -756,22 +803,21 @@ static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video_enable, D
 	}
 
 	g_signal_connect ( elements[0], "pad-added", G_CALLBACK ( dvb_pad_demux_audio ), elements[1] );
-	if ( video_enable ) g_signal_connect ( elements[0], "pad-added", G_CALLBACK ( dvb_pad_demux_video ), elements[8] );
+	if ( video ) g_signal_connect ( elements[0], "pad-added", G_CALLBACK ( dvb_pad_demux_video ), elements[8] );
 
 	g_signal_connect ( elements[3], "pad-added", G_CALLBACK ( dvb_pad_decode ), elements[4] );
-	if ( video_enable ) g_signal_connect ( elements[10], "pad-added", G_CALLBACK ( dvb_pad_decode ), elements[11] );
-
+	if ( video ) g_signal_connect ( elements[10], "pad-added", G_CALLBACK ( dvb_pad_decode ), elements[11] );
 
 	gst_element_link_many ( elements[1], elements[14], elements[15], NULL );
-	if ( video_enable ) gst_element_link_many ( elements[8], elements[16], elements[17], NULL );
+	if ( video ) gst_element_link_many ( elements[8], elements[16], elements[17], NULL );
 
 	gst_element_link ( elements[15], elements[18] );
-	if ( video_enable ) gst_element_link ( elements[17], elements[18] );
+	if ( video ) gst_element_link ( elements[17], elements[18] );
 
 	gst_element_link ( elements[18], elements[19] );
 
 	g_signal_connect ( elements[15], "have-type", G_CALLBACK ( dvb_typefind_parser ), dvb );
-	if ( video_enable ) g_signal_connect ( elements[17], "have-type", G_CALLBACK ( dvb_typefind_parser ), dvb );
+	if ( video ) g_signal_connect ( elements[17], "have-type", G_CALLBACK ( dvb_typefind_parser ), dvb );
 
 	g_autofree char *dt = helia_time_to_str ();
 	char **lines = g_strsplit ( dvb->data, ":", 0 );
@@ -800,10 +846,17 @@ static DvbSet dvb_create_rec_bin ( GstElement *element, gboolean video_enable, D
 	return dvbset;
 }
 
-static GstPadProbeReturn dvb_blockpad_probe ( GstPad * pad, GstPadProbeInfo * info, gpointer data )
+static GstPadProbeReturn dvb_blockpad_probe ( GstPad *pad, GstPadProbeInfo *info, gpointer data )
 {
 	Dvb *dvb = (Dvb *) data;
+/*
+	GSettings *setting = settings_init ();
 
+	gboolean enc_b = FALSE;
+	if ( setting ) enc_b = g_settings_get_boolean ( setting, "encoding-tv" );
+
+	if ( setting ) g_object_unref ( setting );
+*/
 	double value = VOLUME;
 	g_object_get ( dvb->volume, "volume", &value, NULL );
 
@@ -811,6 +864,11 @@ static GstPadProbeReturn dvb_blockpad_probe ( GstPad * pad, GstPadProbeInfo * in
 	dvb_remove_bin ( dvb->playdvb, "dvbsrc" );
 
 	DvbSet dvbset;
+
+	// if ( enc_b )
+	// 	dvbset = dvb_create_rec_enc_bin ( dvb->playdvb, dvb->checked_video, dvb );
+	// else
+
 	dvbset = dvb_create_rec_bin ( dvb->playdvb, dvb->checked_video, dvb );
 
 	dvb->demux  = dvbset.demux;
@@ -1098,7 +1156,7 @@ static void dvb_stop_set_play ( const char *data, Dvb *dvb )
 	dvbset = dvb_create_bin ( dvb->playdvb, dvb->checked_video );
 
 	dvb->dvbsrc = dvbset.dvbsrc;
-	dvb->demux = dvbset.demux;
+	dvb->demux  = dvbset.demux;
 	dvb->equalizer = dvbset.equalizer;
 	dvb->videoblnc = dvbset.videoblnc;
 
@@ -1264,6 +1322,25 @@ static void dvb_msg_err ( G_GNUC_UNUSED GstBus *bus, GstMessage *msg, Dvb *dvb )
 		dvb_set_stop ( dvb );
 }
 
+static void dvb_enc_create_elements ( Dvb *dvb )
+{
+	GSettings *setting = settings_init ();
+
+	g_autofree char *enc_audio = NULL;
+	g_autofree char *enc_video = NULL;
+	g_autofree char *enc_muxer = NULL;
+
+	if ( setting ) enc_audio = g_settings_get_string ( setting, "encoder-audio" );
+	if ( setting ) enc_video = g_settings_get_string ( setting, "encoder-video" );
+	if ( setting ) enc_muxer = g_settings_get_string ( setting, "encoder-muxer" );
+
+	dvb->enc_audio = gst_element_factory_make ( ( enc_audio ) ? enc_audio : "vorbisenc", NULL );
+	dvb->enc_video = gst_element_factory_make ( ( enc_video ) ? enc_video : "theoraenc", NULL );
+	dvb->enc_muxer = gst_element_factory_make ( ( enc_muxer ) ? enc_muxer : "oggmux",    NULL );
+
+	if ( setting ) g_object_unref ( setting );
+}
+
 static GstElement * dvb_create ( Dvb *dvb )
 {
 	GstElement *dvbplay = gst_pipeline_new ( "pipeline" );
@@ -1285,13 +1362,63 @@ static GstElement * dvb_create ( Dvb *dvb )
 
 	gst_object_unref (bus);
 
+	dvb_enc_create_elements ( dvb );
+
 	return dvbplay;
+}
+
+
+
+static void dvb_show_cursor ( GtkDrawingArea *draw, gboolean show_cursor )
+{
+	GdkWindow *window = gtk_widget_get_window ( GTK_WIDGET ( draw ) );
+
+	GdkCursor *cursor = gdk_cursor_new_for_display ( gdk_display_get_default (), ( show_cursor ) ? GDK_ARROW : GDK_BLANK_CURSOR );
+
+	gdk_window_set_cursor ( window, cursor );
+
+	g_object_unref (cursor);
+}
+
+static gboolean dvb_video_notify_event ( GtkDrawingArea *draw, G_GNUC_UNUSED GdkEventMotion *event, Dvb *dvb )
+{
+	if ( dvb->quit ) return GDK_EVENT_STOP;
+
+	time ( &dvb->t_hide );
+
+	dvb_show_cursor ( draw, TRUE );
+
+	return GDK_EVENT_STOP;
+}
+
+static gboolean dvb_video_hide_cursor ( Dvb *dvb )
+{
+	if ( dvb->quit ) return FALSE;
+	if ( !dvb->run ) return TRUE;
+
+	time_t t_cur;
+	time ( &t_cur );
+
+	if ( ( t_cur - dvb->t_hide < 2 ) ) return TRUE;
+
+	gboolean show = TRUE;
+	if ( GST_ELEMENT_CAST ( dvb->playdvb )->current_state == GST_STATE_PLAYING && dvb->checked_video ) show = FALSE;
+
+	GtkWindow *window = GTK_WINDOW ( gtk_widget_get_toplevel ( GTK_WIDGET ( dvb->video ) ) );
+
+	if ( !gtk_window_is_active ( window ) ) dvb_show_cursor ( dvb->video, TRUE ); else dvb_show_cursor ( dvb->video, show );
+
+	return TRUE;
 }
 
 
 
 static void dvb_init ( Dvb *dvb )
 {
+	dvb->enc_video = NULL;
+	dvb->enc_audio = NULL;
+	dvb->enc_muxer = NULL;
+
 	dvb->run  = FALSE;
 	dvb->quit = FALSE;
 	dvb->data = NULL;
@@ -1308,11 +1435,13 @@ static void dvb_init ( Dvb *dvb )
 	dvb->playlist = dvb_create_treeview_scroll ( dvb );
 
 	dvb->video = (GtkDrawingArea *)gtk_drawing_area_new ();
-	gtk_widget_set_events ( GTK_WIDGET ( dvb->video ), GDK_BUTTON_PRESS_MASK );
+	gtk_widget_set_events ( GTK_WIDGET ( dvb->video ), GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK );
 
 	g_signal_connect ( dvb->video, "draw", G_CALLBACK ( dvb_video_draw ), dvb );
 	g_signal_connect ( dvb->video, "realize", G_CALLBACK ( dvb_video_realize ), dvb );
-	g_signal_connect ( dvb->video, "button-press-event", G_CALLBACK ( dvb_video_press_event ), dvb );
+
+	g_signal_connect ( dvb->video, "button-press-event",  G_CALLBACK ( dvb_video_press_event  ), dvb );
+	g_signal_connect ( dvb->video, "motion-notify-event", G_CALLBACK ( dvb_video_notify_event ), dvb );
 
 	gtk_drag_dest_set ( GTK_WIDGET ( dvb->video ), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY );
 	gtk_drag_dest_add_uri_targets  ( GTK_WIDGET ( dvb->video ) );
@@ -1325,6 +1454,8 @@ static void dvb_init ( Dvb *dvb )
 	sprintf ( path, "%s/helia/gtv-channel.conf", g_get_user_config_dir () );
 
 	if ( g_file_test ( path, G_FILE_TEST_EXISTS ) ) dvb_treeview_add_channels ( path, dvb );
+
+	g_timeout_add_seconds ( 2, (GSourceFunc)dvb_video_hide_cursor, dvb );
 }
 
 static void dvb_autosave ( Dvb *dvb )
@@ -1343,7 +1474,11 @@ void dvb_quit ( Dvb *dvb )
 
 	gst_element_set_state ( dvb->playdvb, GST_STATE_NULL );
 
-	g_object_unref ( dvb->playdvb );
+	gst_object_unref ( dvb->playdvb );
+
+	gst_object_unref ( dvb->enc_audio );
+	gst_object_unref ( dvb->enc_video );
+	gst_object_unref ( dvb->enc_muxer );
 }
 
 void dvb_run_status ( uint16_t opacity, gboolean status, Dvb *dvb )

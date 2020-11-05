@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="helia-light">
-  <schema id="org.gnome.helia-light" path="/org/gnome/helia-light/">
+<schemalist gettext-domain="helia">
+  <schema id="org.gnome.helia" path="/org/gnome/helia/">
     <key name="dark" type="b">
       <default>true</default>
     </key>
@@ -24,6 +24,21 @@
     </key>
     <key name="theme" type="s">
       <default>'none'</default>
+    </key>
+    <key name="encoding-iptv" type="b">
+      <default>false</default>
+    </key>
+    <key name="encoding-tv" type="b">
+      <default>false</default>
+    </key>
+    <key name="encoder-audio" type="s">
+      <default>'vorbisenc'</default>
+    </key>
+    <key name="encoder-video" type="s">
+      <default>'theoraenc'</default>
+    </key>
+    <key name="encoder-muxer" type="s">
+      <default>'oggmux'</default>
     </key>
   </schema>
 </schemalist>

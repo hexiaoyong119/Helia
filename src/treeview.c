@@ -85,7 +85,7 @@ void helia_treeview_to_file ( const char *file, gboolean mp_tv, GtkTreeView *tre
 	GString *gstring = g_string_new ( ( mp_tv ) ? "#EXTM3U \n" : "# Gtv-Dvb channel format \n" );
 
 	GtkTreeIter iter;
-	GtkTreeModel *model = gtk_tree_view_get_model ( GTK_TREE_VIEW ( tree_view ) );
+	GtkTreeModel *model = gtk_tree_view_get_model ( tree_view );
 
 	int ind = gtk_tree_model_iter_n_children ( model, NULL );
 

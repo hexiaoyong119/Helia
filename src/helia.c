@@ -18,6 +18,7 @@
 
 #include <gtk/gtk.h>
 #include <gst/gst.h>
+#include <locale.h>
 
 enum prefs
 {
@@ -70,7 +71,7 @@ static uint helia_power_manager_inhibit ( GDBusConnection *connect )
 						"/org/freedesktop/PowerManagement/Inhibit",
 						"org.freedesktop.PowerManagement.Inhibit",
 						"Inhibit",
-						g_variant_new ("(ss)", "Helia-light", "Video" ),
+						g_variant_new ("(ss)", "Helia", "Video" ),
 						G_VARIANT_TYPE ("(u)"),
 						G_DBUS_CALL_FLAGS_NONE,
 						-1,
@@ -132,7 +133,7 @@ static void helia_power_manager_off ( Helia *helia )
 {
 	helia->cookie = helia_power_manager_inhibit ( helia->connect );
 
-	/*helia->cookie = gtk_application_inhibit ( GTK_APPLICATION (helia), helia->window, GTK_APPLICATION_INHIBIT_SWITCH, "Helia-light" );*/
+	/*helia->cookie = gtk_application_inhibit ( GTK_APPLICATION (helia), helia->window, GTK_APPLICATION_INHIBIT_SWITCH, "Helia" );*/
 }
 
 static void helia_power_manager ( gboolean power_off, Helia *helia )
@@ -173,10 +174,10 @@ static void helia_about ( G_GNUC_UNUSED GtkButton *button, GtkWindow *window )
 	gtk_about_dialog_set_version ( dialog, VERSION );
 	gtk_about_dialog_set_authors ( dialog, authors );
 	gtk_about_dialog_set_artists ( dialog, artists );
-	gtk_about_dialog_set_program_name   ( dialog, "Helia-light" );
+	gtk_about_dialog_set_program_name   ( dialog, "Helia" );
 	gtk_about_dialog_set_logo_icon_name ( dialog, "helia-logo"  );
 	gtk_about_dialog_set_license_type   ( dialog, GTK_LICENSE_GPL_3_0 );
-	gtk_about_dialog_set_copyright ( dialog, "Copyright 2020 Helia-light" );
+	gtk_about_dialog_set_copyright ( dialog, "Copyright 2020 Helia" );
 	gtk_about_dialog_set_website   ( dialog, "https://github.com/vl-nix/helia" );
 	gtk_about_dialog_set_comments  ( dialog, "Media Player & IPTV & Digital TV \nDVB-T2/S2/C" );
 
@@ -194,7 +195,7 @@ static void helia_win_base ( Helia *helia )
 	dvb_run_status ( OPACITY, FALSE, helia->dvb );
 	player_run_status ( OPACITY, FALSE, helia->player );
 
-	gtk_window_set_title ( helia->window, "Helia-light" );
+	gtk_window_set_title ( helia->window, "Helia" );
 }
 
 static void helia_window_set_win_mp ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
@@ -215,7 +216,7 @@ static void helia_window_set_win_mp ( G_GNUC_UNUSED GtkButton *button, Helia *he
 
 	player_run_status ( opacity, TRUE, helia->player );
 
-	gtk_window_set_title ( helia->window, "Helia-light - Media Player");
+	gtk_window_set_title ( helia->window, "Helia - Media Player");
 }
 
 static void helia_window_set_win_tv ( G_GNUC_UNUSED GtkButton *button, Helia *helia )
@@ -236,7 +237,7 @@ static void helia_window_set_win_tv ( G_GNUC_UNUSED GtkButton *button, Helia *he
 
 	dvb_run_status ( opacity, TRUE, helia->dvb );
 
-	gtk_window_set_title ( helia->window, "Helia-light - Digital TV" );
+	gtk_window_set_title ( helia->window, "Helia - Digital TV" );
 }
 
 static void helia_dvb_clicked_handler ( G_GNUC_UNUSED Dvb *dvb, G_GNUC_UNUSED const char *button, Helia *helia )
@@ -517,7 +518,6 @@ static uint helia_set_settings ( Helia *helia )
 
 	uint opacity = 100;
 	opacity = g_settings_get_uint ( helia->setting, "opacity-win" );
-	// gtk_widget_set_opacity ( GTK_WIDGET ( helia->window ), ( (float)opacity / 100 ) );
 
 	gboolean dark = TRUE;
 	dark = g_settings_get_boolean ( helia->setting, "dark" );
@@ -567,6 +567,8 @@ static void helia_auto_start ( GFile **files, int n_files, Helia *helia )
 
 static void helia_window_new ( GApplication *app, GFile **files, int n_files )
 {
+	setlocale ( LC_NUMERIC, "C" );
+
 	Helia *helia = HELIA_APPLICATION ( app );
 
 	helia->connect = helia_dbus_init ();
@@ -585,7 +587,7 @@ static void helia_window_new ( GApplication *app, GFile **files, int n_files )
 	g_signal_connect ( helia->player, "button-clicked", G_CALLBACK ( helia_player_clicked_handler ), helia );
 
 	helia->window = (GtkWindow *)gtk_application_window_new ( GTK_APPLICATION (helia) );
-	gtk_window_set_title ( helia->window, "Helia-light");
+	gtk_window_set_title ( helia->window, "Helia");
 	gtk_window_set_default_size ( helia->window, helia->width, helia->height );
 	gtk_window_set_icon_name ( helia->window, DEF_ICON );
 	g_signal_connect ( helia->window, "destroy", G_CALLBACK ( helia_window_quit ), helia );

@@ -13,30 +13,161 @@
 #include "button.h"
 
 #include <linux/dvb/frontend.h>
+#include <gst/pbutils/pbutils.h>
 
 typedef struct _Info Info;
 
 struct _Info
 {
+	GtkLabel *label_wh;
+
 	uint src_a, src_v;
 	GtkLabel *label_audio;
 	GtkLabel *label_video;
 
 	GstElement *element;
 	GtkTreeView *treeview;
+
+	GstDiscoverer *discoverer;
+
+	char *fps;
+	char *audio;
 };
 
-static void helia_info_changed_combo_video ( GtkComboBox *combo, GstElement *element )
+/*
+static void print_tag_foreach ( const GstTagList *tags, const gchar *tag, gpointer data )
 {
-	g_object_set ( element, "current-video", gtk_combo_box_get_active (combo), NULL );
+	char *str = NULL;
+	GValue val = { 0, };
+
+	int depth = GPOINTER_TO_INT (data);
+
+	gst_tag_list_copy_value ( &val, tags, tag );
+
+	if ( G_VALUE_HOLDS_STRING (&val) )
+		str = g_value_dup_string (&val);
+	else
+		str = gst_value_serialize (&val);
+
+	g_print ( "%*s: %s \n", 2*depth, gst_tag_get_nick (tag), str );
+
+	free (str);
+	g_value_unset (&val);
 }
-static void helia_info_changed_combo_audio ( GtkComboBox *combo, GstElement *element )
+*/
+
+static void helia_info_discovered_cb ( G_GNUC_UNUSED GstDiscoverer *discoverer, GstDiscovererInfo *info, GError *err, Info *inf )
 {
-	g_object_set ( element, "current-audio", gtk_combo_box_get_active (combo), NULL );
+	if ( err )
+	{
+		g_warning ( "Couldn't get information about '%s': %s", gst_discoverer_info_get_uri (info), err->message );
+		return;
+	}
+
+	GList *video_streams = gst_discoverer_info_get_video_streams ( info );
+	GList *audio_streams = gst_discoverer_info_get_audio_streams ( info );
+
+	if ( video_streams )
+	{
+		uint width = gst_discoverer_video_info_get_width ( video_streams->data );
+		uint height = gst_discoverer_video_info_get_height ( video_streams->data );
+
+		char wh[100] = {};
+		sprintf ( wh, "%u × %u", width, height );
+
+		gtk_label_set_text ( inf->label_wh, wh );
+
+		uint fps_n = gst_discoverer_video_info_get_framerate_num   ( video_streams->data );
+		uint fps_d = gst_discoverer_video_info_get_framerate_denom ( video_streams->data );
+
+		char fps[100] = {};
+		if ( fps_n > 0 && fps_d > 0 ) { sprintf ( fps, "%u", ( fps_n + fps_d/2 ) / fps_d ); inf->fps = g_strdup ( fps ); }
+	}
+
+	if ( audio_streams )
+	{
+		int num = 0, n_audio = 0, c_audio = 0;
+		g_object_get ( inf->element, "n-audio", &n_audio, NULL );
+		g_object_get ( inf->element, "current-audio", &c_audio, NULL );
+
+		while ( audio_streams != NULL )
+		{
+			uint channels = gst_discoverer_audio_info_get_channels ( audio_streams->data );
+			uint rate = gst_discoverer_audio_info_get_sample_rate ( audio_streams->data );
+
+			if ( channels )
+			{
+				const char *str = "Stereo";
+
+				if ( channels > 2 )
+					str = "Surround";
+				else if ( channels == 1 )
+					str = "Mono";
+
+				if ( num == c_audio )
+				{
+					free ( inf->audio );
+
+					if ( rate )
+						inf->audio = g_strdup_printf ( "%s   ( %d KHz )", str, rate / 1000 );
+					else
+						inf->audio = g_strdup_printf ( "%s", str );
+				}
+			}
+/*
+			const GstTagList *tags = gst_discoverer_stream_info_get_tags ( audio_streams->data );
+
+			if ( tags ) gst_tag_list_foreach ( tags, print_tag_foreach, GINT_TO_POINTER (4) );
+*/
+			num++;
+			audio_streams = audio_streams->next;
+		}
+	}
+
+	gst_discoverer_stream_info_list_free ( video_streams );
+	gst_discoverer_stream_info_list_free ( audio_streams );
 }
-static void helia_info_changed_combo_text ( GtkComboBox *combo, GstElement *element )
+
+static GstDiscoverer * helia_info_create_discovered ( Info *info )
 {
-	g_object_set ( element, "current-text", gtk_combo_box_get_active (combo), NULL );
+	g_autofree char *uri = NULL;
+	g_object_get ( info->element, "current-uri", &uri, NULL );
+
+	GError *err = NULL;
+	GstDiscoverer *discoverer = gst_discoverer_new ( 60 * GST_SECOND, &err );
+
+	if ( discoverer == NULL )
+	{
+		g_warning ( "Could not create discoverer object: %s", err->message );
+		g_error_free ( err );
+
+		return NULL;
+	}
+
+	g_signal_connect ( discoverer, "discovered", G_CALLBACK ( helia_info_discovered_cb ), info );
+
+	gst_discoverer_start ( discoverer );
+	gst_discoverer_discover_uri_async ( discoverer, uri );
+
+	return discoverer;
+}
+
+static void helia_info_changed_combo_video ( GtkComboBox *combo, Info *info )
+{
+	g_object_set ( info->element, "current-video", gtk_combo_box_get_active (combo), NULL );
+}
+static void helia_info_changed_combo_audio ( GtkComboBox *combo, Info *info )
+{
+	g_object_set ( info->element, "current-audio", gtk_combo_box_get_active (combo), NULL );
+
+	gst_discoverer_stop ( info->discoverer );
+	gst_object_unref    ( info->discoverer );
+
+	info->discoverer = helia_info_create_discovered ( info );
+}
+static void helia_info_changed_combo_text ( GtkComboBox *combo, Info *info )
+{
+	g_object_set ( info->element, "current-text", gtk_combo_box_get_active (combo), NULL );
 }
 
 static gboolean helia_info_get_state_subtitle ( GstElement *element )
@@ -180,7 +311,16 @@ static gboolean helia_info_update_bitrate_video ( Info *info )
 
 	g_autofree char *bitrate_video = helia_info_get_int_vat ( info->element, "get-video-tags", c_video, GST_TAG_BITRATE );
 
-	gtk_label_set_text ( info->label_video, ( bitrate_video ) ? bitrate_video : "? Kbits/s" );
+	char label[256] = {};
+
+	if ( bitrate_video && info->fps )
+		sprintf ( label, "%s   ---   Fps %s", bitrate_video, info->fps );
+	else if ( bitrate_video )
+		sprintf ( label, "%s", bitrate_video );
+	else if ( info->fps )
+		sprintf ( label, "Fps %s", info->fps );
+
+	gtk_label_set_text ( info->label_video, label );
 
 	return TRUE;
 }
@@ -199,7 +339,17 @@ static gboolean helia_info_update_bitrate_audio ( Info *info )
 
 	g_autofree char *bitrate_audio = helia_info_get_int_vat ( info->element, "get-audio-tags", c_audio, GST_TAG_BITRATE );
 
-	gtk_label_set_text ( info->label_audio, ( bitrate_audio ) ? bitrate_audio : "? Kbits/s" );
+	char label[256] = {};
+
+	if ( bitrate_audio && info->audio )
+		sprintf ( label, "%s   ---   %s", bitrate_audio, info->audio );
+	else if ( bitrate_audio )
+		sprintf ( label, "%s", bitrate_audio );
+	else if ( info->audio )
+		sprintf ( label, "%s", info->audio );
+
+
+	gtk_label_set_text ( info->label_audio, label );
 
 	return TRUE;
 }
@@ -250,13 +400,14 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 {
 	GtkBox *v_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL, 0 );
 	gtk_box_set_spacing ( v_box, 5 );
-	gtk_widget_set_margin_top   ( GTK_WIDGET ( v_box ), 10 );
-	gtk_widget_set_margin_start ( GTK_WIDGET ( v_box ), 10 );
-	gtk_widget_set_margin_end   ( GTK_WIDGET ( v_box ), 10 );
+	gtk_widget_set_margin_top    ( GTK_WIDGET ( v_box ), 10 );
+	gtk_widget_set_margin_bottom ( GTK_WIDGET ( v_box ), 10 );
+	gtk_widget_set_margin_start  ( GTK_WIDGET ( v_box ), 10 );
+	gtk_widget_set_margin_end    ( GTK_WIDGET ( v_box ), 10 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_row_homogeneous ( GTK_GRID ( grid ) ,TRUE );
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ) ,TRUE );
+	gtk_grid_set_row_homogeneous    ( grid, TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
 
 	GtkBox *h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 
@@ -277,13 +428,15 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 
 	GtkEntry *entry_fl = (GtkEntry *) gtk_entry_new ();
 	g_object_set ( entry_fl, "editable", FALSE, NULL );
-	gtk_entry_set_text ( GTK_ENTRY ( entry_fl ), ( uri ) ? uri : "None" );
+	gtk_entry_set_text ( entry_fl, ( uri ) ? uri : "None" );
 
-	gtk_box_pack_start ( h_box, GTK_WIDGET ( entry_fl ), TRUE, TRUE, 0 );
+	gtk_box_pack_start ( h_box, GTK_WIDGET ( entry_fl ), TRUE,  TRUE,  0 );
+	gtk_box_pack_start ( v_box, GTK_WIDGET ( h_box    ), FALSE, FALSE, 0 );
 
-	gtk_box_pack_start ( v_box, GTK_WIDGET ( h_box ), FALSE, FALSE, 0 );
+	info->label_wh = (GtkLabel *)gtk_label_new ( " " );
+	gtk_box_pack_start ( v_box, GTK_WIDGET ( info->label_wh ), FALSE, FALSE, 5 );
 
-	int n_video, n_audio, n_text, c_video, c_audio, c_text;
+	int n_video = 0, n_audio = 0, n_text = 0, c_video = 0, c_audio = 0, c_text = 0;
 	g_object_get ( element, "n-video", &n_video, NULL );
 	g_object_get ( element, "n-audio", &n_audio, NULL );
 	g_object_get ( element, "n-text",  &n_text,  NULL );
@@ -292,8 +445,8 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 	g_object_get ( element, "current-audio", &c_audio, NULL );
 	g_object_get ( element, "current-text",  &c_text,  NULL );
 
-	char *bitrate_video = helia_info_get_int_vat ( element, "get-video-tags", c_video, GST_TAG_BITRATE );
-	char *bitrate_audio = helia_info_get_int_vat ( element, "get-audio-tags", c_audio, GST_TAG_BITRATE );
+	g_autofree char *bitrate_video = helia_info_get_int_vat ( element, "get-video-tags", c_video, GST_TAG_BITRATE );
+	g_autofree char *bitrate_audio = helia_info_get_int_vat ( element, "get-audio-tags", c_audio, GST_TAG_BITRATE );
 
 	const char *icon_a = helia_check_icon_theme ( "helia-audio" ) ? "helia-audio" : "audio-x-generic";
 	const char *icon_v = helia_check_icon_theme ( "helia-video" ) ? "helia-video" : "video-x-generic";
@@ -315,7 +468,7 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 	{
 		GtkImage *image = helia_create_image ( data_n[c].name, 48 );
 		gtk_widget_set_halign ( GTK_WIDGET ( image ), GTK_ALIGN_START );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( image ), 0, c, 1, 2 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( image ), 0, c, 1, 2 );
 
 		if ( c == 0 || c == 2 || c == 4 )
 		{
@@ -336,10 +489,7 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 
 			gtk_combo_box_set_active ( GTK_COMBO_BOX ( combo ), data_n[c].c_avt );
 
-			if ( c == 1 || c == 3 )
-				g_signal_connect ( combo, "changed", G_CALLBACK ( data_n[c].f ), element );
-			else
-				if ( data_n[c].f ) g_signal_connect ( combo, "changed", G_CALLBACK ( data_n[c].f ), element );
+			g_signal_connect ( combo, "changed", G_CALLBACK ( data_n[c].f ), info );
 
 			if ( c == 4 && data_n[c].n_avt > 0 )
 			{
@@ -353,26 +503,23 @@ static GtkBox * helia_info_mp ( GstElement *element, Info *info )
 				gtk_box_pack_start ( h_box, GTK_WIDGET ( combo  ), TRUE, TRUE, 0 );
 				gtk_box_pack_start ( h_box, GTK_WIDGET ( button ), TRUE, TRUE, 0 );
 
-				gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( h_box ), 1, c, 1, 1 );
+				gtk_grid_attach ( grid, GTK_WIDGET ( h_box ), 1, c, 1, 1 );
 				gtk_widget_set_sensitive ( GTK_WIDGET ( combo ), status_subtitle );
 			}
 			else
-				gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( combo ), 1, c, 1, 1 );
+				gtk_grid_attach ( grid, GTK_WIDGET ( combo ), 1, c, 1, 1 );
 		}
 		else
 		{
-			GtkLabel *label = (GtkLabel *)gtk_label_new ( ( data_n[c].info ) ? data_n[c].info : "? Kbits/s" );
+			GtkLabel *label = (GtkLabel *)gtk_label_new ( ( data_n[c].info ) ? data_n[c].info : " " );
 			gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_START );
-			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 1, c, 1, 1 );
+			gtk_grid_attach ( grid, GTK_WIDGET ( label ), 1, c, 1, 1 );
 
 			data_n[c].f ( label, info );
 		}
 	}
 
-	free ( bitrate_video );
-	free ( bitrate_audio );
-
-	gtk_box_pack_start ( v_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
+	gtk_box_pack_start ( v_box, GTK_WIDGET ( grid ), TRUE, TRUE, 0 );
 
 	return v_box;
 }
@@ -382,15 +529,24 @@ static void helia_info_quit ( G_GNUC_UNUSED GtkWindow *win, Info *info )
 	g_source_remove ( info->src_v );
 	g_source_remove ( info->src_a );
 
+	gst_discoverer_stop ( info->discoverer );
+	gst_object_unref    ( info->discoverer );
+
+	free ( info->audio );
+	free ( info->fps );
 	free ( info );
 	info = NULL;
 }
 
 void helia_info_player ( GtkWindow *win_base, GtkTreeView *treeview, GstElement *element )
 {
-	Info *info = g_new ( Info, 1 );
+	Info *info = g_new0 ( Info, 1 );
 	info->element = element;
 	info->treeview = treeview;
+	info->discoverer = helia_info_create_discovered ( info );
+
+	info->fps = NULL;
+	info->audio = NULL;
 
 	GtkWindow *window = (GtkWindow *)gtk_window_new ( GTK_WINDOW_TOPLEVEL );
 	gtk_window_set_title ( window, "" );
@@ -399,7 +555,7 @@ void helia_info_player ( GtkWindow *win_base, GtkTreeView *treeview, GstElement 
 	gtk_window_set_icon_name ( window, DEF_ICON );
 	gtk_window_set_position  ( window, GTK_WIN_POS_CENTER_ON_PARENT );
 
-	gtk_window_set_default_size ( window, 400, -1 );
+	gtk_window_set_default_size ( window, 500, -1 );
 	g_signal_connect ( window, "destroy", G_CALLBACK ( helia_info_quit ), info );
 
 	GtkBox *m_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_VERTICAL,   0 );
@@ -415,6 +571,9 @@ void helia_info_player ( GtkWindow *win_base, GtkTreeView *treeview, GstElement 
 	gtk_container_set_border_width ( GTK_CONTAINER ( m_box ), 10 );
 	gtk_container_add   ( GTK_CONTAINER ( window ), GTK_WIDGET ( m_box ) );
 	gtk_widget_show_all ( GTK_WIDGET ( window ) );
+
+	double opacity = gtk_widget_get_opacity ( GTK_WIDGET ( win_base ) );
+	gtk_widget_set_opacity ( GTK_WIDGET ( window ), opacity );
 }
 
 
@@ -428,8 +587,8 @@ static GtkBox * helia_info_tv ( const char *data, GstElement *element, GtkComboB
 	gtk_widget_set_margin_end   ( GTK_WIDGET ( v_box ), 10 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_row_homogeneous    ( GTK_GRID ( grid ) ,TRUE );
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ) ,TRUE );
+	gtk_grid_set_row_homogeneous    ( grid, TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
 
 	int adapter = 0, frontend = 0, delsys = 0;
 	g_object_get ( element, "adapter",  &adapter,  NULL );
@@ -445,7 +604,7 @@ static GtkBox * helia_info_tv ( const char *data, GstElement *element, GtkComboB
 
 	GtkEntry *entry_ch = (GtkEntry *) gtk_entry_new ();
 	g_object_set ( entry_ch, "editable", FALSE, NULL );
-	gtk_entry_set_text ( GTK_ENTRY ( entry_ch ), fields[0] );
+	gtk_entry_set_text ( entry_ch, fields[0] );
 
 	gtk_box_pack_start ( v_box, GTK_WIDGET ( entry_ch ), FALSE, FALSE, 0 );
 
@@ -473,7 +632,7 @@ static GtkBox * helia_info_tv ( const char *data, GstElement *element, GtkComboB
 		GtkLabel *label = (GtkLabel *)gtk_label_new ( set );
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_START );
 
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 0, j+1, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 0, j+1, 1, 1 );
 
 		const char *set_v = scan_get_info_descr_vis ( splits[0], atoi ( splits[1] ) );
 
@@ -498,7 +657,7 @@ static GtkBox * helia_info_tv ( const char *data, GstElement *element, GtkComboB
 
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_START );
 
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 1, j+1, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 1, j+1, 1, 1 );
 
 		g_strfreev (splits);
 	}
@@ -537,6 +696,9 @@ GtkComboBoxText * helia_info_dvb ( const char *data, GtkWindow *win_base, GstEle
 	gtk_container_set_border_width ( GTK_CONTAINER ( m_box ), 10 );
 	gtk_container_add   ( GTK_CONTAINER ( window ), GTK_WIDGET ( m_box ) );
 	gtk_widget_show_all ( GTK_WIDGET ( window ) );
+
+	double opacity = gtk_widget_get_opacity ( GTK_WIDGET ( win_base ) );
+	gtk_widget_set_opacity ( GTK_WIDGET ( window ), opacity );
 
 	return combo_lang;
 }

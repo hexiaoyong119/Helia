@@ -1,11 +1,11 @@
-### [Helia-light](https://github.com/vl-nix/helia)
+### [Helia](https://github.com/vl-nix/helia)
 
 * Media Player
   * Drag and Drop: files, folders, playlists - [M3U](https://en.wikipedia.org/wiki/M3U)
-  * Record IPTV
+  * Record IPTV ( Original / Encoding )
 
 * Digital TV
-  * Record
+  * Record ( Original / Encoding )
   * Scan: DVB, DTMB ( DVB-T/T2, DVB-S/S2, DVB-C )
 
 #### Channels ( scan initial file )
@@ -33,4 +33,4 @@
 
 5. Uninstall: sudo ninja -C build uninstall
 
-6. Debug: DVB_DEBUG=1 helia-light
+6. Debug: DVB_DEBUG=1 helia

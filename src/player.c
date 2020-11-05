@@ -17,6 +17,7 @@
 #include "helia-eqa.h"
 #include "helia-eqv.h"
 #include "control-mp.h"
+#include "enc-prop.h"
 #include "settings.h"
 
 #include <time.h>
@@ -43,9 +44,14 @@ struct _Player
 	GstElement *videoblnc;
 	GstElement *equalizer;
 
+	GstElement *enc_video;
+	GstElement *enc_audio;
+	GstElement *enc_muxer;
+
 	GFile *file_rec;
 	GstElement *pipeline_rec;
 
+	time_t t_hide;
 	time_t t_start;
 	gboolean pulse;
 
@@ -55,6 +61,7 @@ struct _Player
 	gboolean run;
 	gboolean quit;
 	gboolean debug;
+	gboolean repeat;
 	gboolean rec_video;
 };
 
@@ -262,7 +269,7 @@ static void player_msg_cng ( G_GNUC_UNUSED GstBus *bus, G_GNUC_UNUSED GstMessage
 
 		case GST_STATE_PLAYING:
 		{
-			uint n_video = 0;
+			int n_video = 0;
 			g_object_get ( player->playbin, "n-video", &n_video, NULL );
 			if ( n_video > 0 ) g_signal_emit_by_name ( player, "power-set", TRUE );
 			break;
@@ -329,6 +336,25 @@ static void player_msg_err ( G_GNUC_UNUSED GstBus *bus, GstMessage *msg, Player 
 		player_set_stop ( player );
 }
 
+static void player_enc_create_elements ( Player *player )
+{
+	GSettings *setting = settings_init ();
+
+	g_autofree char *enc_audio = NULL;
+	g_autofree char *enc_video = NULL;
+	g_autofree char *enc_muxer = NULL;
+
+	if ( setting ) enc_audio = g_settings_get_string ( setting, "encoder-audio" );
+	if ( setting ) enc_video = g_settings_get_string ( setting, "encoder-video" );
+	if ( setting ) enc_muxer = g_settings_get_string ( setting, "encoder-muxer" );
+
+	player->enc_audio = gst_element_factory_make ( ( enc_audio ) ? enc_audio : "vorbisenc", NULL );
+	player->enc_video = gst_element_factory_make ( ( enc_video ) ? enc_video : "theoraenc", NULL );
+	player->enc_muxer = gst_element_factory_make ( ( enc_muxer ) ? enc_muxer : "oggmux",    NULL );
+
+	if ( setting ) g_object_unref ( setting );
+}
+
 static GstElement * player_create ( Player *player )
 {
 	GstElement *playbin = gst_element_factory_make ( "playbin", NULL );
@@ -380,6 +406,8 @@ static GstElement * player_create ( Player *player )
 
 	gst_object_unref ( bus );
 
+	player_enc_create_elements ( player );
+
 	return playbin;
 }
 
@@ -418,7 +446,6 @@ static gboolean player_update_record ( Player *player )
 
 		return FALSE;
 	}
-
 
 	GFileInfo *file_info = g_file_query_info ( player->file_rec, "standard::*", 0, NULL, NULL );
 
@@ -601,13 +628,13 @@ static void player_record ( Player *player )
 		int n_video = 0;
 		g_object_get ( player->playbin, "n-video", &n_video, NULL );
 
-		player->rec_video = ( n_video > 0 ) ? TRUE : FALSE;
-
 		g_autofree char *rec_dir = NULL;
 		g_autofree char *dt = helia_time_to_str ();
 
+		// gboolean enc_b = FALSE;
 		GSettings *setting = settings_init ();
 		if ( setting ) rec_dir = g_settings_get_string ( setting, "rec-dir" );
+		// if ( setting ) enc_b   = g_settings_get_boolean ( setting, "encoding-iptv" );
 
 		char path[PATH_MAX] = {};
 
@@ -620,6 +647,12 @@ static void player_record ( Player *player )
 		if ( uri && g_str_has_suffix ( uri, ".m3u8" ) ) hls = TRUE;
 
 		player_set_stop ( player );
+
+		player->rec_video = ( n_video > 0 ) ? TRUE : FALSE;
+
+		// if ( enc_b )
+		//	player->pipeline_rec = player_create_rec_enc_bin ( hls, player->rec_video, uri, path, player );
+		// else
 
 		player->pipeline_rec = player_create_rec_bin ( hls, player->rec_video, uri, path, player );
 
@@ -649,6 +682,14 @@ static void player_record ( Player *player )
 
 static void player_next_play ( char *file, Player *player )
 {
+	if ( player->repeat )
+	{
+		gst_element_set_state ( player->playbin, GST_STATE_NULL    );
+		gst_element_set_state ( player->playbin, GST_STATE_PLAYING );
+
+		return;
+	}
+
 	GtkTreeModel *model = gtk_tree_view_get_model ( player->treeview );
 	int indx = gtk_tree_model_iter_n_children ( model, NULL );
 
@@ -698,6 +739,48 @@ static void player_treeview_row_activated ( GtkTreeView *tree_view, GtkTreePath 
 	}
 }
 
+
+
+static void player_enc_prop_set_audio_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Player *player )
+{
+	gst_object_unref ( player->enc_audio );
+
+	player->enc_audio = GST_ELEMENT ( object );
+}
+static void player_enc_prop_set_video_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Player *player )
+{
+	gst_object_unref ( player->enc_video );
+
+	player->enc_video = GST_ELEMENT ( object );
+}
+static void player_enc_prop_set_muxer_handler ( G_GNUC_UNUSED EncProp *ep, GObject *object, Player *player )
+{
+	gst_object_unref ( player->enc_muxer );
+
+	player->enc_muxer = GST_ELEMENT ( object );
+}
+
+static void player_playlist_prop ( G_GNUC_UNUSED GtkButton *button, Player *player )
+{
+	GtkWindow *win_base = GTK_WINDOW ( gtk_widget_get_toplevel ( GTK_WIDGET ( player->video ) ) );
+
+	EncProp *ep = enc_prop_new ();
+	enc_prop_set_run ( win_base, player->enc_video, player->enc_audio, player->enc_muxer, TRUE, ep );
+
+	g_signal_connect ( ep, "enc-prop-set-audio", G_CALLBACK ( player_enc_prop_set_audio_handler ), player );
+	g_signal_connect ( ep, "enc-prop-set-video", G_CALLBACK ( player_enc_prop_set_video_handler ), player );
+	g_signal_connect ( ep, "enc-prop-set-muxer", G_CALLBACK ( player_enc_prop_set_muxer_handler ), player );
+}
+
+static void player_playlist_repeat ( GtkButton *button, Player *player )
+{
+	player->repeat = !player->repeat;
+
+	GtkImage *image = helia_create_image ( ( player->repeat ) ? "helia-set" : "helia-repeat", ICON_SIZE );
+
+	gtk_button_set_image ( button, GTK_WIDGET ( image ) );
+}
+
 static void player_playlist_hide ( G_GNUC_UNUSED GtkButton *button, Player *player )
 {
 	gtk_widget_hide ( GTK_WIDGET ( player->playlist ) );
@@ -705,7 +788,7 @@ static void player_playlist_hide ( G_GNUC_UNUSED GtkButton *button, Player *play
 
 static void player_playlist_save ( G_GNUC_UNUSED GtkButton *button, Player *player )
 {
-	GtkTreeModel *model = gtk_tree_view_get_model ( GTK_TREE_VIEW ( player->treeview ) );
+	GtkTreeModel *model = gtk_tree_view_get_model ( player->treeview );
 
 	int ind = gtk_tree_model_iter_n_children ( model, NULL );
 
@@ -747,7 +830,13 @@ static GtkBox * player_create_treeview_box ( Player *player )
 	h_box = (GtkBox *)gtk_box_new ( GTK_ORIENTATION_HORIZONTAL, 0 );
 	gtk_box_set_spacing ( h_box, 5 );
 
-	GtkButton *button = helia_create_button ( h_box, "helia-save", "🖴", ICON_SIZE );
+	GtkButton *button = helia_create_button ( h_box, "helia-pref", "🛠", ICON_SIZE );
+	g_signal_connect ( button, "clicked", G_CALLBACK ( player_playlist_prop ), player );
+
+	button = helia_create_button ( h_box, "helia-repeat", "📡", ICON_SIZE );
+	g_signal_connect ( button, "clicked", G_CALLBACK ( player_playlist_repeat ), player );
+
+	button = helia_create_button ( h_box, "helia-save", "🖴", ICON_SIZE );
 	g_signal_connect ( button, "clicked", G_CALLBACK ( player_playlist_save ), player );
 
 	button = helia_create_button ( h_box, "helia-exit", "🞬", ICON_SIZE );
@@ -928,7 +1017,7 @@ void player_treeview_append ( const char *name, const char *file, Player *player
 
 		player_stop_set_play ( file, player );
 
-		gtk_tree_selection_select_iter ( gtk_tree_view_get_selection ( GTK_TREE_VIEW ( player->treeview ) ), &iter );
+		gtk_tree_selection_select_iter ( gtk_tree_view_get_selection ( player->treeview ), &iter );
 	}
 }
 
@@ -957,6 +1046,8 @@ static gboolean player_slider_refresh ( Player *player )
 	if ( player->quit ) return FALSE;
 
 	GstElement *element = player->playbin;
+	if ( player->pipeline_rec ) element = player->pipeline_rec;
+
 	if ( GST_ELEMENT_CAST ( element )->current_state == GST_STATE_NULL    ) return TRUE;
 	if ( GST_ELEMENT_CAST ( element )->current_state  < GST_STATE_PLAYING ) return TRUE;
 
@@ -1046,7 +1137,7 @@ static void player_step_frame ( Player *player )
 {
 	if ( GST_ELEMENT_CAST ( player->playbin )->current_state == GST_STATE_NULL ) return;
 
-	gint n_video = 0;
+	int n_video = 0;
 	g_object_get ( player->playbin, "n-video", &n_video, NULL );
 
 	if ( n_video == 0 ) return;
@@ -1186,10 +1277,59 @@ void player_add_accel ( GtkApplication *app, Player *player )
 
 
 
+static void player_show_cursor ( GtkDrawingArea *draw, gboolean show_cursor )
+{
+	GdkWindow *window = gtk_widget_get_window ( GTK_WIDGET ( draw ) );
+
+	GdkCursor *cursor = gdk_cursor_new_for_display ( gdk_display_get_default (), ( show_cursor ) ? GDK_ARROW : GDK_BLANK_CURSOR );
+
+	gdk_window_set_cursor ( window, cursor );
+
+	g_object_unref (cursor);
+}
+
+static gboolean player_video_notify_event ( GtkDrawingArea *draw, G_GNUC_UNUSED GdkEventMotion *event, Player *player )
+{
+	if ( player->quit ) return GDK_EVENT_STOP;
+
+	time ( &player->t_hide );
+
+	player_show_cursor ( draw, TRUE );
+
+	return GDK_EVENT_STOP;
+}
+
+static gboolean player_video_hide_cursor ( Player *player )
+{
+	if ( player->quit ) return FALSE;
+	if ( !player->run ) return TRUE;
+
+	time_t t_cur;
+	time ( &t_cur );
+
+	if ( ( t_cur - player->t_hide < 2 ) ) return TRUE;
+
+	gboolean show = TRUE;
+	if ( player->pipeline_rec && player->rec_video ) show = FALSE;
+
+	int n_video = 0;
+	g_object_get ( player->playbin, "n-video", &n_video, NULL );
+	if ( GST_ELEMENT_CAST ( player->playbin )->current_state >= GST_STATE_PAUSED && n_video > 0 ) show = FALSE;
+
+	GtkWindow *window = GTK_WINDOW ( gtk_widget_get_toplevel ( GTK_WIDGET ( player->video ) ) );
+
+	if ( !gtk_window_is_active ( window ) ) player_show_cursor ( player->video, TRUE ); else player_show_cursor ( player->video, show );
+
+	return TRUE;
+}
+
+
+
 static void player_init ( Player *player )
 {
 	player->run  = FALSE;
 	player->quit = FALSE;
+	player->repeat = FALSE;
 	player->opacity = OPACITY;
 	player->debug = ( g_getenv ( "DVB_DEBUG" ) ) ? TRUE : FALSE;
 
@@ -1203,12 +1343,14 @@ static void player_init ( Player *player )
 	player->playlist = player_create_treeview_scroll ( player );
 
 	player->video = (GtkDrawingArea *)gtk_drawing_area_new ();
-	gtk_widget_set_events ( GTK_WIDGET ( player->video ), GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK );
+	gtk_widget_set_events ( GTK_WIDGET ( player->video ), GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK | GDK_POINTER_MOTION_MASK );
 
 	g_signal_connect ( player->video, "draw", G_CALLBACK ( player_video_draw ), player );
 	g_signal_connect ( player->video, "realize", G_CALLBACK ( player_video_realize ), player );
 	g_signal_connect ( player->video, "scroll-event", G_CALLBACK ( player_video_scroll_even ), player );
-	g_signal_connect ( player->video, "button-press-event", G_CALLBACK ( player_video_press_event ), player );
+
+	g_signal_connect ( player->video, "button-press-event",  G_CALLBACK ( player_video_press_event  ), player );
+	g_signal_connect ( player->video, "motion-notify-event", G_CALLBACK ( player_video_notify_event ), player );
 
 	gtk_drag_dest_set ( GTK_WIDGET ( player->video ), GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY );
 	gtk_drag_dest_add_uri_targets  ( GTK_WIDGET ( player->video ) );
@@ -1226,6 +1368,8 @@ static void player_init ( Player *player )
 	slider_set_signal_id ( player->slider, signal_id );
 
 	gtk_box_pack_end ( box, GTK_WIDGET ( player->slider ), FALSE, FALSE, 0 );
+
+	g_timeout_add_seconds ( 2, (GSourceFunc)player_video_hide_cursor, player );
 }
 
 void player_quit ( Player *player )
@@ -1235,7 +1379,7 @@ void player_quit ( Player *player )
 	g_object_set ( player->playbin, "mute", FALSE, NULL );
 	gst_element_set_state ( player->playbin, GST_STATE_NULL );
 
-	g_object_unref ( player->playbin );
+	gst_object_unref ( player->playbin );
 }
 
 void player_run_status ( uint16_t opacity, gboolean status, Player *player )

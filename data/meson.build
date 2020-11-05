@@ -6,7 +6,7 @@ exec_path = bindir + '/' + meson.project_name()
 desktop_conf = configuration_data()
 
 set_desktop = [
-  ['NAME', 'Helia-light'],
+  ['NAME', 'Helia'],
   ['COMMENT', 'Digital TV & Media Player'],
   ['EXEC', exec_path],
   ['ICON', 'applications-multimedia'],
@@ -31,7 +31,7 @@ configure_file(
 )
 
 path_gschema = join_paths(get_option('prefix'), get_option('datadir'), 'glib-2.0/schemas')
-gschema_file = configure_file(input: 'gschema', output: 'org.gnome.helia-light.gschema.xml', copy: true)
+gschema_file = configure_file(input: 'gschema', output: 'org.gnome.helia.gschema.xml', copy: true)
 install_data(gschema_file, install_dir: path_gschema)
 
 cmd_compile_schema = 'glib-compile-schemas ' + path_gschema

@@ -73,8 +73,8 @@ void helia_keyb_win ( GtkWindow *win_base )
 	gtk_box_pack_start ( g_box, GTK_WIDGET ( label ), TRUE, TRUE, 10 );
 
 	GtkGrid *grid = (GtkGrid *)gtk_grid_new();
-	gtk_grid_set_column_homogeneous ( GTK_GRID ( grid ), TRUE );
-	gtk_grid_set_row_homogeneous    ( GTK_GRID ( grid ) ,TRUE );
+	gtk_grid_set_column_homogeneous ( grid, TRUE );
+	gtk_grid_set_row_homogeneous    ( grid, TRUE );
 	gtk_box_pack_start ( g_box, GTK_WIDGET ( grid ), TRUE, TRUE, 10 );
 
 	const struct data_a { const char *image; const char *accel; } data_a_n[] =
@@ -96,29 +96,29 @@ void helia_keyb_win ( GtkWindow *win_base )
 	{
 		if ( !data_a_n[d].image )
 		{
-			gtk_grid_attach ( GTK_GRID ( grid ), gtk_label_new ( "" ), 0, d, 1, 1 );
+			gtk_grid_attach ( grid, gtk_label_new ( "" ), 0, d, 1, 1 );
 			continue;
 		}
 
 		if ( d == 8 )
 		{
 			GtkBox *hbox = helia_keyb_win_create_play_pause ( "helia-play", "helia-pause" );
-			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( hbox ), 0, d, 1, 1 );
+			gtk_grid_attach ( grid, GTK_WIDGET ( hbox ), 0, d, 1, 1 );
 
 			GtkLabel *label = (GtkLabel *)gtk_label_new ( data_a_n[d].accel );
 			gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_END );
-			gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 2, d, 1, 1 );
+			gtk_grid_attach ( grid, GTK_WIDGET ( label ), 2, d, 1, 1 );
 
 			continue;
 		}
 
 		GtkImage *image = helia_create_image ( data_a_n[d].image, 32 );
 		gtk_widget_set_halign ( GTK_WIDGET ( image ), GTK_ALIGN_START );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( image ), 0, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( image ), 0, d, 1, 1 );
 
 		GtkLabel *label = (GtkLabel *)gtk_label_new ( data_a_n[d].accel );
 		gtk_widget_set_halign ( GTK_WIDGET ( label ), GTK_ALIGN_END );
-		gtk_grid_attach ( GTK_GRID ( grid ), GTK_WIDGET ( label ), 2, d, 1, 1 );
+		gtk_grid_attach ( grid, GTK_WIDGET ( label ), 2, d, 1, 1 );
 	}
 
 	gtk_box_pack_start ( m_box, GTK_WIDGET ( g_box ), TRUE, TRUE, 0 );
@@ -152,7 +152,7 @@ static void helia_open_net_button_activate ( G_GNUC_UNUSED GtkButton *button, Pl
 
 static void helia_open_net_clear ( GtkEntry *entry, G_GNUC_UNUSED GtkEntryIconPosition icon_pos, G_GNUC_UNUSED GdkEvent *event )
 {
-	gtk_entry_set_text ( GTK_ENTRY ( entry ), "" );
+	gtk_entry_set_text ( entry, "" );
 }
 
 void helia_open_net ( GtkWindow *win_base, Player *player )

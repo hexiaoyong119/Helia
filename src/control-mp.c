@@ -31,9 +31,9 @@ G_DEFINE_TYPE ( ControlMp, control_mp, GTK_TYPE_WINDOW )
 static void control_button_set_icon ( GtkButton *button, const char *name, uint icon_size )
 {
 	GdkPixbuf *pixbuf = gtk_icon_theme_load_icon ( gtk_icon_theme_get_default (), 
-				name, (int)icon_size, GTK_ICON_LOOKUP_USE_BUILTIN, NULL );
+		name, (int)icon_size, GTK_ICON_LOOKUP_USE_BUILTIN, NULL );
 
-	GtkImage *image   = (GtkImage  *)gtk_image_new_from_pixbuf ( pixbuf );
+	GtkImage *image   = (GtkImage *)gtk_image_new_from_pixbuf ( pixbuf );
 	gtk_button_set_image ( button, GTK_WIDGET ( image ) );
 
 	if ( pixbuf ) g_object_unref ( pixbuf );
